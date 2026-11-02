@@ -1,0 +1,1392 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
+        <meta name="theme-color" content="#f5f5f7" />
+        <title>My Account — Referal Kenya</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            body {
+                -webkit-font-smoothing: antialiased;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    Helvetica, Arial, sans-serif;
+                background-color: #f5f5f7;
+                color: #1d1d1f;
+            }
+            .apple-card {
+                background: #fff;
+                border-radius: 20px;
+                box-shadow:
+                    0 4px 24px rgba(0, 0, 0, 0.04),
+                    0 1px 2px rgba(0, 0, 0, 0.04);
+                border: 1px solid rgba(0, 0, 0, 0.02);
+            }
+            .apple-input {
+                background: #fff;
+                border: 1px solid #d2d2d7;
+                border-radius: 12px;
+                transition: all 0.2s ease;
+            }
+            .apple-input:focus {
+                outline: none;
+                border-color: #0071e3;
+                box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+            }
+            .apple-btn {
+                background: #0071e3;
+                color: #fff;
+                border-radius: 9999px;
+                font-weight: 500;
+                transition: all 0.2s ease;
+            }
+            .apple-btn:hover {
+                background: #0077ed;
+                transform: scale(0.98);
+            }
+            .apple-btn:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+                transform: none;
+            }
+            .glass-nav {
+                background: rgba(255, 255, 255, 0.85);
+                backdrop-filter: saturate(180%) blur(20px);
+                -webkit-backdrop-filter: saturate(180%) blur(20px);
+            }
+            .hide {
+                display: none !important;
+            }
+            .nav-item {
+                color: #86868b;
+                transition: all 0.2s;
+            }
+            .nav-item:hover {
+                color: #1d1d1f;
+                background: rgba(0, 0, 0, 0.03);
+            }
+            .nav-item.active {
+                color: #0071e3;
+                background: rgba(0, 113, 227, 0.08);
+            }
+            .bottom-nav-item {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                flex: 1;
+                padding: 8px 0;
+                color: #86868b;
+                transition: color 0.2s;
+            }
+            .bottom-nav-item.active {
+                color: #0071e3;
+            }
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+            .spinner {
+                animation: spin 1s linear infinite;
+            }
+            @keyframes toast-in {
+                from {
+                    opacity: 0;
+                    transform: translateY(-10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            .toast {
+                animation: toast-in 0.25s ease-out;
+            }
+        </style>
+    </head>
+    <body class="min-h-screen pb-20 md:pb-0">
+        <!-- LOGIN VIEW -->
+        <div
+            id="loginView"
+            class="min-h-screen flex items-center justify-center px-4"
+        >
+            <div class="apple-card p-8 md:p-10 w-full max-w-md">
+                <h1 class="text-3xl font-bold tracking-tight">Welcome back</h1>
+                <p class="text-[15px] text-gray-500 mt-2">
+                    Log in to manage your referrals.
+                </p>
+                <form id="loginForm" class="mt-8 space-y-5">
+                    <div>
+                        <label
+                            class="block text-sm font-medium text-gray-700 mb-1.5"
+                            >Phone or email</label
+                        >
+                        <input
+                            name="identifier"
+                            required
+                            class="w-full apple-input px-4 py-3 text-[15px]"
+                            placeholder="0712 345 678"
+                        />
+                    </div>
+                    <div>
+                        <label
+                            class="block text-sm font-medium text-gray-700 mb-1.5"
+                            >Password</label
+                        >
+                        <input
+                            name="password"
+                            type="password"
+                            required
+                            class="w-full apple-input px-4 py-3 text-[15px]"
+                        />
+                    </div>
+                    <button class="w-full apple-btn py-3.5 text-[17px]">
+                        Log in
+                    </button>
+                    <div
+                        id="loginMsg"
+                        class="text-sm hide rounded-xl px-4 py-3"
+                    ></div>
+                </form>
+                <p class="mt-6 text-sm text-gray-500 text-center">
+                    No account?
+                    <a
+                        href="/"
+                        class="text-[#0071e3] font-medium hover:underline"
+                        >Register</a
+                    >
+                </p>
+            </div>
+        </div>
+
+        <!-- DASHBOARD -->
+        <div id="dashboardView" class="hide min-h-screen">
+            <aside
+                class="hidden md:flex flex-col w-64 fixed inset-y-0 left-0 glass-nav border-r border-gray-200/50 z-40"
+            >
+                <div class="p-6 flex items-center gap-2">
+                    <div
+                        class="w-8 h-8 rounded-xl bg-black flex items-center justify-center font-bold text-white text-sm"
+                    >
+                        R
+                    </div>
+                    <span class="font-semibold tracking-tight text-[17px]"
+                        >Referal</span
+                    >
+                </div>
+                <nav class="flex-1 px-4 space-y-1 mt-4">
+                    <button
+                        data-view="overview"
+                        class="nav-item active w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[15px] font-medium"
+                    >
+                        Overview
+                    </button>
+                    <button
+                        data-view="referrals"
+                        class="nav-item w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[15px] font-medium"
+                    >
+                        Referrals
+                    </button>
+                    <button
+                        data-view="wallet"
+                        class="nav-item w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[15px] font-medium"
+                    >
+                        Wallet
+                    </button>
+                    <button
+                        data-view="history"
+                        class="nav-item w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[15px] font-medium"
+                    >
+                        History
+                    </button>
+                    <button
+                        data-view="profile"
+                        class="nav-item w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[15px] font-medium"
+                    >
+                        Profile
+                    </button>
+                </nav>
+                <div class="p-4 border-t border-gray-200/50">
+                    <button
+                        id="logoutBtnDesktop"
+                        class="w-full text-left px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                    >
+                        Log out
+                    </button>
+                </div>
+            </aside>
+
+            <main class="md:ml-64 min-h-screen">
+                <header
+                    class="sticky top-0 z-30 glass-nav border-b border-gray-200/50 h-14 flex items-center justify-between px-4 md:px-8"
+                >
+                    <div class="md:hidden flex items-center gap-2">
+                        <div
+                            class="w-7 h-7 rounded-lg bg-black flex items-center justify-center font-bold text-white text-xs"
+                        >
+                            R
+                        </div>
+                        <span class="font-semibold tracking-tight text-[15px]"
+                            >Referal</span
+                        >
+                    </div>
+                    <div class="hidden md:block">
+                        <h1
+                            id="pageTitle"
+                            class="font-bold text-xl tracking-tight"
+                        >
+                            Overview
+                        </h1>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span
+                            id="userStatusBadge"
+                            class="text-[11px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-full bg-gray-100 text-gray-600"
+                            >—</span
+                        >
+                        <button
+                            id="logoutBtnMobile"
+                            class="md:hidden text-sm font-medium text-gray-500 hover:text-black"
+                        >
+                            Logout
+                        </button>
+                    </div>
+                </header>
+
+                <div class="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
+                    <div
+                        id="paymentBanner"
+                        class="hide rounded-2xl border p-4 text-sm font-medium"
+                    ></div>
+                    <div
+                        id="payCTA"
+                        class="hide apple-card p-6 md:p-8 text-center border-2 border-[#0071e3]/20 bg-blue-50/30"
+                    >
+                        <h2
+                            class="text-xl md:text-2xl font-bold tracking-tight"
+                        >
+                            Complete your membership
+                        </h2>
+                        <p
+                            class="text-[15px] text-gray-600 mt-2 max-w-md mx-auto"
+                        >
+                            Pay to activate your account. Your referral link
+                            becomes active instantly after payment is verified.
+                        </p>
+                        <button
+                            id="payNowBtn"
+                            class="mt-5 apple-btn px-8 py-3 text-[15px]"
+                        >
+                            Pay now
+                        </button>
+                    </div>
+
+                    <!-- OVERVIEW -->
+                    <div id="view-overview" class="space-y-6">
+                        <div
+                            class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4"
+                        >
+                            <div class="apple-card p-5">
+                                <div
+                                    class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1"
+                                >
+                                    Available
+                                </div>
+                                <div
+                                    id="statAvailable"
+                                    class="text-2xl md:text-3xl font-bold text-[#34c759]"
+                                >
+                                    KSh 0
+                                </div>
+                            </div>
+                            <div class="apple-card p-5">
+                                <div
+                                    class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1"
+                                >
+                                    Pending
+                                </div>
+                                <div
+                                    id="statPending"
+                                    class="text-2xl md:text-3xl font-bold text-[#ff9f0a]"
+                                >
+                                    KSh 0
+                                </div>
+                            </div>
+                            <div class="apple-card p-5">
+                                <div
+                                    class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1"
+                                >
+                                    Total Earned
+                                </div>
+                                <div
+                                    id="statEarned"
+                                    class="text-2xl md:text-3xl font-bold text-black"
+                                >
+                                    KSh 0
+                                </div>
+                            </div>
+                            <div class="apple-card p-5">
+                                <div
+                                    class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1"
+                                >
+                                    Withdrawn
+                                </div>
+                                <div
+                                    id="statWithdrawn"
+                                    class="text-2xl md:text-3xl font-bold text-black"
+                                >
+                                    KSh 0
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="apple-card p-6 md:p-8 relative overflow-hidden"
+                        >
+                            <div
+                                class="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-[#34c759] opacity-10 rounded-full blur-2xl"
+                            ></div>
+                            <h3 class="text-xl font-bold tracking-tight">
+                                Your referral link
+                            </h3>
+                            <p class="text-[15px] text-gray-500 mt-1 mb-5">
+                                Share this link. You earn KSh 50 for every
+                                person who joins and pays.
+                            </p>
+                            <div class="flex flex-col sm:flex-row gap-3">
+                                <input
+                                    id="referralUrl"
+                                    readonly
+                                    class="flex-1 apple-input px-4 py-3.5 text-[15px] font-medium text-gray-700 bg-gray-50"
+                                />
+                                <button
+                                    id="copyBtn"
+                                    class="apple-btn px-6 py-3.5 text-[15px] whitespace-nowrap"
+                                >
+                                    Copy
+                                </button>
+                                <button
+                                    id="shareWaBtn"
+                                    class="bg-[#34c759] hover:bg-[#2fb350] text-white rounded-full px-6 py-3.5 text-[15px] font-medium transition-colors whitespace-nowrap"
+                                >
+                                    Share
+                                </button>
+                            </div>
+                            <div
+                                class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50 rounded-2xl p-4 border border-gray-100"
+                            >
+                                <div>
+                                    <div
+                                        class="text-[11px] uppercase tracking-wider text-gray-500 font-semibold"
+                                    >
+                                        Clicks
+                                    </div>
+                                    <div
+                                        id="refClicks"
+                                        class="text-lg font-bold mt-0.5"
+                                    >
+                                        0
+                                    </div>
+                                </div>
+                                <div>
+                                    <div
+                                        class="text-[11px] uppercase tracking-wider text-gray-500 font-semibold"
+                                    >
+                                        Paid
+                                    </div>
+                                    <div
+                                        id="refPaid"
+                                        class="text-lg font-bold mt-0.5"
+                                    >
+                                        0
+                                    </div>
+                                </div>
+                                <div>
+                                    <div
+                                        class="text-[11px] uppercase tracking-wider text-gray-500 font-semibold"
+                                    >
+                                        Conv. Rate
+                                    </div>
+                                    <div
+                                        id="refConv"
+                                        class="text-lg font-bold mt-0.5"
+                                    >
+                                        0%
+                                    </div>
+                                </div>
+                                <div>
+                                    <div
+                                        class="text-[11px] uppercase tracking-wider text-gray-500 font-semibold"
+                                    >
+                                        Code
+                                    </div>
+                                    <div
+                                        id="refCode"
+                                        class="text-lg font-bold mt-0.5 text-[#0071e3]"
+                                    >
+                                        —
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="view-referrals" class="hide space-y-4">
+                        <div class="apple-card overflow-hidden">
+                            <div
+                                class="px-6 py-4 border-b border-gray-100 bg-gray-50/50"
+                            >
+                                <h3 class="font-semibold text-[15px]">
+                                    Direct Referrals
+                                </h3>
+                            </div>
+                            <div
+                                id="referralsList"
+                                class="divide-y divide-gray-100"
+                            ></div>
+                            <div
+                                id="referralsPager"
+                                class="px-6 py-4 flex justify-between items-center text-sm bg-gray-50 border-t border-gray-100"
+                            ></div>
+                        </div>
+                    </div>
+
+                    <div id="view-wallet" class="hide space-y-6">
+                        <div class="apple-card p-6 md:p-8">
+                            <h3 class="text-xl font-bold tracking-tight">
+                                Withdraw Funds
+                            </h3>
+                            <p class="text-[15px] text-gray-500 mt-1 mb-5">
+                                Transfer your available balance directly to
+                                M-Pesa. Minimum:
+                                <span
+                                    id="minWithdrawLabel"
+                                    class="font-semibold text-black"
+                                    >KSh 200</span
+                                >.
+                            </p>
+                            <form
+                                id="withdrawForm"
+                                class="flex flex-col sm:flex-row gap-3"
+                            >
+                                <input
+                                    id="withdrawAmount"
+                                    name="amount"
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    placeholder="Amount in KSh"
+                                    class="flex-1 apple-input px-4 py-3.5 text-[15px]"
+                                />
+                                <button
+                                    class="apple-btn px-8 py-3.5 text-[15px]"
+                                >
+                                    Request Payout
+                                </button>
+                            </form>
+                            <div
+                                id="withdrawMsg"
+                                class="mt-4 text-sm hide rounded-xl px-4 py-3"
+                            ></div>
+                        </div>
+                        <div class="apple-card overflow-hidden">
+                            <div
+                                class="px-6 py-4 border-b border-gray-100 bg-gray-50/50"
+                            >
+                                <h3 class="font-semibold text-[15px]">
+                                    Wallet Ledger
+                                </h3>
+                            </div>
+                            <div
+                                id="walletList"
+                                class="divide-y divide-gray-100"
+                            ></div>
+                            <div
+                                id="walletPager"
+                                class="px-6 py-4 flex justify-between items-center text-sm bg-gray-50 border-t border-gray-100"
+                            ></div>
+                        </div>
+                    </div>
+
+                    <div id="view-history" class="hide space-y-6">
+                        <div class="apple-card overflow-hidden">
+                            <div
+                                class="px-6 py-4 border-b border-gray-100 bg-gray-50/50"
+                            >
+                                <h3 class="font-semibold text-[15px]">
+                                    Registration Payments
+                                </h3>
+                            </div>
+                            <div
+                                id="paymentsList"
+                                class="divide-y divide-gray-100"
+                            ></div>
+                        </div>
+                        <div class="apple-card overflow-hidden">
+                            <div
+                                class="px-6 py-4 border-b border-gray-100 bg-gray-50/50"
+                            >
+                                <h3 class="font-semibold text-[15px]">
+                                    Withdrawal History
+                                </h3>
+                            </div>
+                            <div
+                                id="withdrawalsList"
+                                class="divide-y divide-gray-100"
+                            ></div>
+                        </div>
+                    </div>
+
+                    <div id="view-profile" class="hide space-y-6">
+                        <div class="apple-card p-6 md:p-8">
+                            <h3 class="text-xl font-bold tracking-tight mb-6">
+                                Personal Information
+                            </h3>
+                            <form
+                                id="profileForm"
+                                class="grid md:grid-cols-2 gap-5"
+                            >
+                                <div>
+                                    <label
+                                        class="block text-sm font-medium text-gray-700 mb-1.5"
+                                        >Full name</label
+                                    >
+                                    <input
+                                        name="fullName"
+                                        class="w-full apple-input px-4 py-3 text-[15px]"
+                                    />
+                                </div>
+                                <div>
+                                    <label
+                                        class="block text-sm font-medium text-gray-700 mb-1.5"
+                                        >Email Address</label
+                                    >
+                                    <input
+                                        name="email"
+                                        type="email"
+                                        class="w-full apple-input px-4 py-3 text-[15px]"
+                                    />
+                                </div>
+                                <div>
+                                    <label
+                                        class="block text-sm font-medium text-gray-700 mb-1.5"
+                                        >M-Pesa Payout Number</label
+                                    >
+                                    <input
+                                        name="payoutPhone"
+                                        class="w-full apple-input px-4 py-3 text-[15px]"
+                                    />
+                                </div>
+                                <div>
+                                    <label
+                                        class="block text-sm font-medium text-gray-700 mb-1.5"
+                                        >Login Phone (Read-only)</label
+                                    >
+                                    <input
+                                        disabled
+                                        class="w-full apple-input px-4 py-3 text-[15px] bg-gray-50 text-gray-400"
+                                        id="profilePhone"
+                                    />
+                                </div>
+                                <div
+                                    class="md:col-span-2 pt-4 border-t border-gray-100 flex flex-col sm:flex-row gap-3"
+                                >
+                                    <button
+                                        class="apple-btn px-6 py-3 text-[15px]"
+                                    >
+                                        Save Changes
+                                    </button>
+                                    <button
+                                        type="button"
+                                        id="notifBtn"
+                                        class="bg-gray-100 hover:bg-gray-200 text-black px-6 py-3 rounded-full font-medium text-[15px] transition-colors"
+                                    >
+                                        Mark notifications read
+                                    </button>
+                                </div>
+                            </form>
+                            <div
+                                id="profileMsg"
+                                class="mt-4 text-sm hide rounded-xl px-4 py-3"
+                            ></div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <nav
+                class="md:hidden fixed bottom-0 w-full glass-nav border-t border-gray-200 pb-safe z-50"
+            >
+                <div class="flex justify-around items-center h-16">
+                    <button data-view="overview" class="bottom-nav-item active">
+                        <span class="text-[10px] font-medium">Home</span>
+                    </button>
+                    <button data-view="referrals" class="bottom-nav-item">
+                        <span class="text-[10px] font-medium">Referrals</span>
+                    </button>
+                    <button data-view="wallet" class="bottom-nav-item">
+                        <span class="text-[10px] font-medium">Wallet</span>
+                    </button>
+                    <button data-view="history" class="bottom-nav-item">
+                        <span class="text-[10px] font-medium">History</span>
+                    </button>
+                    <button data-view="profile" class="bottom-nav-item">
+                        <span class="text-[10px] font-medium">Profile</span>
+                    </button>
+                </div>
+            </nav>
+        </div>
+
+        <!-- TOASTS -->
+        <div
+            id="toastContainer"
+            class="fixed top-4 right-4 z-[200] space-y-2 pointer-events-none"
+        ></div>
+
+        <!-- PAYMENT MODAL -->
+        <div
+            id="payModal"
+            class="hide fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center px-4"
+        >
+            <div class="apple-card p-8 w-full max-w-md">
+                <div id="payStep1">
+                    <div
+                        class="w-14 h-14 rounded-2xl bg-green-50 flex items-center justify-center mb-5"
+                    >
+                        <svg
+                            class="w-7 h-7 text-[#34c759]"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                            />
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold tracking-tight">
+                        Pay KSh <span id="payAmountLabel">100</span>
+                    </h2>
+                    <p class="text-[15px] text-gray-500 mt-1 mb-6">
+                        Enter your M-Pesa number. We'll send an STK push to
+                        confirm.
+                    </p>
+                    <label
+                        class="block text-sm font-medium text-gray-700 mb-1.5"
+                        >M-Pesa number</label
+                    >
+                    <input
+                        id="payPhone"
+                        inputmode="tel"
+                        class="w-full apple-input px-4 py-3 text-[15px]"
+                        placeholder="0712 345 678"
+                    />
+                    <button
+                        id="payChargeBtn"
+                        class="w-full apple-btn py-3.5 text-[15px] mt-5"
+                    >
+                        Send STK push
+                    </button>
+                    <button
+                        id="payCancelBtn"
+                        class="w-full text-sm text-gray-500 py-3 mt-1 hover:text-black"
+                    >
+                        Cancel
+                    </button>
+                    <div
+                        id="payErrMsg"
+                        class="hide text-sm rounded-xl px-4 py-3 mt-3"
+                    ></div>
+                </div>
+                <div id="payStep2" class="hide text-center py-4">
+                    <div class="w-16 h-16 mx-auto mb-6 relative">
+                        <div
+                            class="absolute inset-0 rounded-full border-4 border-gray-100"
+                        ></div>
+                        <div
+                            class="absolute inset-0 rounded-full border-4 border-[#0071e3] border-t-transparent spinner"
+                        ></div>
+                    </div>
+                    <h2 class="text-xl font-bold">Check your phone</h2>
+                    <p class="text-[15px] text-gray-500 mt-2">
+                        Enter your M-Pesa PIN to complete the payment of
+                        <span class="font-semibold text-black"
+                            >KSh <span id="payAmountLabel2">100</span></span
+                        >.
+                    </p>
+                    <p id="payTimer" class="text-xs text-gray-400 mt-4">
+                        Waiting for confirmation…
+                    </p>
+                </div>
+                <div id="payStep3" class="hide text-center py-4">
+                    <div
+                        class="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-6"
+                    >
+                        <svg
+                            class="w-9 h-9 text-[#34c759]"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="3"
+                                d="M5 13l4 4L19 7"
+                            />
+                        </svg>
+                    </div>
+                    <h2 class="text-xl font-bold">Payment successful</h2>
+                    <p class="text-[15px] text-gray-500 mt-2">
+                        Membership active. Refreshing dashboard…
+                    </p>
+                </div>
+                <div id="payStep4" class="hide text-center py-4">
+                    <div
+                        class="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-6"
+                    >
+                        <svg
+                            class="w-9 h-9 text-red-500"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="3"
+                                d="M6 18L18 6M6 6l12 12"
+                            />
+                        </svg>
+                    </div>
+                    <h2 class="text-xl font-bold">Payment not completed</h2>
+                    <p id="payFailText" class="text-[15px] text-gray-500 mt-2">
+                        The payment was not completed. You can try again.
+                    </p>
+                    <button id="payRetryBtn" class="w-full apple-btn py-3 mt-5">
+                        Try again
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            (() => {
+                const $ = (s) => document.querySelector(s);
+                const $$ = (s) => document.querySelectorAll(s);
+                const fmt = (kobo) =>
+                    "KSh " +
+                    ((kobo || 0) / 100).toLocaleString("en-KE", {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 2,
+                    });
+
+                function showMsg(el, text, type) {
+                    el.textContent = text;
+                    el.classList.remove("hide");
+                    el.className =
+                        "text-sm rounded-xl px-4 py-3 " +
+                        (type === "error"
+                            ? "bg-red-50 text-red-600 border border-red-200"
+                            : "bg-green-50 text-green-700 border border-green-200");
+                }
+
+                // Toasts
+                function showToast(text, type) {
+                    const el = document.createElement("div");
+                    el.className =
+                        "toast pointer-events-auto apple-card px-4 py-3 text-sm font-medium max-w-xs " +
+                        (type === "error" ? "text-red-600" : "text-green-700");
+                    el.textContent = text;
+                    $("#toastContainer").appendChild(el);
+                    setTimeout(() => {
+                        el.style.opacity = "0";
+                        el.style.transition = "opacity .3s";
+                    }, 3500);
+                    setTimeout(() => el.remove(), 4000);
+                }
+
+                let config = null;
+                (function () {
+                    const cached = localStorage.getItem("rk_config");
+                    if (cached) {
+                        try {
+                            config = JSON.parse(cached);
+                            applyConfig();
+                        } catch (e) {}
+                    }
+                    fetch("/api/config")
+                        .then((r) => r.json())
+                        .then((d) => {
+                            config = d;
+                            localStorage.setItem(
+                                "rk_config",
+                                JSON.stringify(d),
+                            );
+                            applyConfig();
+                        })
+                        .catch(() => {});
+                })();
+                function applyConfig() {
+                    if (!config) return;
+                    const fee = (config.registrationFeeKobo || 10000) / 100;
+                    const a = $("#payAmountLabel");
+                    if (a) a.textContent = fee;
+                    const b = $("#payAmountLabel2");
+                    if (b) b.textContent = fee;
+                }
+
+                async function api(url, opts = {}) {
+                    const res = await fetch(url, {
+                        credentials: "same-origin",
+                        ...opts,
+                    });
+                    let data = null;
+                    try {
+                        data = await res.json();
+                    } catch (e) {}
+                    if (!res.ok)
+                        throw new Error(
+                            (data && data.error) || "HTTP " + res.status,
+                        );
+                    return data;
+                }
+
+                // NAV
+                function switchView(viewName) {
+                    $$('[id^="view-"]').forEach((v) => v.classList.add("hide"));
+                    const target = $("#view-" + viewName);
+                    if (target) target.classList.remove("hide");
+                    $$("aside .nav-item").forEach((btn) => {
+                        btn.classList.toggle(
+                            "active",
+                            btn.dataset.view === viewName,
+                        );
+                    });
+                    $$(".bottom-nav-item").forEach((btn) => {
+                        btn.classList.toggle(
+                            "active",
+                            btn.dataset.view === viewName,
+                        );
+                    });
+                    const titles = {
+                        overview: "Overview",
+                        referrals: "My Referrals",
+                        wallet: "Wallet",
+                        history: "History",
+                        profile: "Profile",
+                    };
+                    $("#pageTitle").textContent =
+                        titles[viewName] || "Dashboard";
+                    window.scrollTo(0, 0);
+                }
+                $$("[data-view]").forEach((btn) =>
+                    btn.addEventListener("click", () =>
+                        switchView(btn.dataset.view),
+                    ),
+                );
+
+                // SSE
+                let sse = null;
+                function connectSSE() {
+                    if (sse) sse.close();
+                    sse = new EventSource("/api/events");
+                    sse.onmessage = (e) => {
+                        try {
+                            handleRealtime(JSON.parse(e.data));
+                        } catch (err) {}
+                    };
+                    sse.onerror = () => {
+                        sse.close();
+                        setTimeout(connectSSE, 3000);
+                    };
+                }
+                function handleRealtime(evt) {
+                    if (!evt || !evt.type) return;
+                    if (evt.type === "referral_signup") {
+                        showToast(`New referral: ${evt.name} signed up!`);
+                        loadReferrals(1);
+                        loadAll();
+                    } else if (evt.type === "commission_credited") {
+                        showToast(`Commission: +${evt.amount}`);
+                        loadAll();
+                        loadWallet(1);
+                    } else if (evt.type === "commission_eligible") {
+                        showToast("Commission became eligible!");
+                        loadAll();
+                    } else if (evt.type === "payout_paid") {
+                        showToast("Withdrawal paid to M-Pesa!");
+                        loadAll();
+                        loadWithdrawals();
+                    } else if (evt.type === "payment_success") {
+                        showToast("Payment confirmed!");
+                        loadAll();
+                    }
+                }
+
+                // BOOT
+                async function boot() {
+                    try {
+                        const me = await api("/api/auth/me");
+                        $("#loginView").classList.add("hide");
+                        $("#dashboardView").classList.remove("hide");
+                        // Fire all loads in parallel for zero-latency feel
+                        await Promise.allSettled([
+                            loadAll(),
+                            loadReferrals(1),
+                            loadWallet(1),
+                            loadWithdrawals(),
+                            loadPayments(),
+                        ]);
+                        connectSSE();
+                        handlePaymentQuery();
+                    } catch (e) {
+                        $("#loginView").classList.remove("hide");
+                    }
+                }
+
+                function handlePaymentQuery() {
+                    const q = new URLSearchParams(location.search).get(
+                        "payment",
+                    );
+                    if (!q) return;
+                    const banner = $("#paymentBanner");
+                    banner.classList.remove("hide");
+                    if (q === "success") {
+                        banner.className =
+                            "rounded-2xl border p-4 text-sm font-medium bg-green-50 text-green-700 border-green-200 mb-6";
+                        banner.textContent =
+                            "Payment verified. Your membership is now active.";
+                    } else if (q === "callback") {
+                        banner.className =
+                            "rounded-2xl border p-4 text-sm font-medium bg-blue-50 text-blue-700 border-blue-200 mb-6";
+                        banner.textContent = "Verifying your payment…";
+                        setTimeout(() => loadAll(), 2000);
+                    } else {
+                        banner.className =
+                            "rounded-2xl border p-4 text-sm font-medium bg-red-50 text-red-600 border-red-200 mb-6";
+                        banner.textContent =
+                            "Payment was not completed. You can try again.";
+                    }
+                }
+
+                // LOGIN
+                $("#loginForm").addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    const fd = new FormData(e.target);
+                    try {
+                        await api("/api/auth/login", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                identifier: fd.get("identifier"),
+                                password: fd.get("password"),
+                            }),
+                        });
+                        location.reload();
+                    } catch (err) {
+                        showMsg($("#loginMsg"), err.message, "error");
+                    }
+                });
+                const handleLogout = async () => {
+                    await fetch("/api/auth/logout", { method: "POST" });
+                    location.reload();
+                };
+                $("#logoutBtnDesktop").addEventListener("click", handleLogout);
+                $("#logoutBtnMobile").addEventListener("click", handleLogout);
+
+                // LOAD ALL (fast, minimal data)
+                async function loadAll() {
+                    const data = await api("/api/member/overview");
+                    const badge = $("#userStatusBadge");
+                    badge.textContent = (data.user.status || "").replace(
+                        "_",
+                        " ",
+                    );
+                    badge.className =
+                        "text-[11px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-full " +
+                        (data.user.status === "active"
+                            ? "bg-green-100 text-green-700"
+                            : data.user.status === "pending_payment"
+                              ? "bg-orange-100 text-orange-700"
+                              : "bg-gray-100 text-gray-600");
+                    $("#payCTA").classList.toggle(
+                        "hide",
+                        data.user.status === "active",
+                    );
+                    $("#statAvailable").textContent = fmt(
+                        data.wallet.availableKobo,
+                    );
+                    $("#statPending").textContent = fmt(
+                        data.wallet.pendingKobo,
+                    );
+                    $("#statEarned").textContent = fmt(
+                        data.wallet.totalEarningsKobo,
+                    );
+                    $("#statWithdrawn").textContent = fmt(
+                        data.wallet.withdrawnKobo,
+                    );
+                    const dynamicRefUrl =
+                        window.location.origin +
+                        "/?ref=" +
+                        data.user.referralCode;
+                    $("#referralUrl").value = dynamicRefUrl;
+                    $("#refCode").textContent = data.user.referralCode || "—";
+                    $("#refClicks").textContent = data.referralStats.clicks;
+                    $("#refPaid").textContent =
+                        data.referralStats.paidReferrals;
+                    $("#refConv").textContent =
+                        (data.referralStats.conversionRate * 100).toFixed(1) +
+                        "%";
+                    const pf = $("#profileForm");
+                    if (pf) {
+                        pf.fullName.value = data.user.fullName || "";
+                        pf.email.value = data.user.email || "";
+                        pf.payoutPhone.value = data.user.payoutPhone || "";
+                        $("#profilePhone").value = data.user.phone || "";
+                    }
+                    if (config)
+                        $("#minWithdrawLabel").textContent = fmt(
+                            config.minWithdrawalKobo,
+                        );
+                }
+
+                // REFERRALS
+                let refPage = 1;
+                async function loadReferrals(page) {
+                    refPage = page;
+                    const data = await api(
+                        "/api/member/referrals?page=" + page + "&pageSize=10",
+                    );
+                    const list = $("#referralsList");
+                    if (!data.items.length) {
+                        list.innerHTML =
+                            '<div class="p-8 text-sm text-gray-400 text-center">No referrals yet. Share your link to get started.</div>';
+                        $("#referralsPager").innerHTML = "";
+                    } else {
+                        list.innerHTML = data.items
+                            .map(
+                                (r) => `
+                            <div class="px-4 md:px-6 py-4 flex items-center justify-between gap-4">
+                                <div>
+                                    <div class="font-medium text-[15px]">${r.name}</div>
+                                    <div class="text-xs text-gray-500 mt-0.5">${r.phone} • ${new Date(r.joinedAt).toLocaleDateString()}</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-semibold text-[15px] ${r.commissionStatus === "paid" ? "text-[#34c759]" : r.commissionStatus === "available" ? "text-[#0071e3]" : "text-[#ff9f0a]"}">${fmt(r.commissionKobo)}</div>
+                                    <div class="text-xs text-gray-500 mt-0.5 uppercase tracking-wide">${(r.commissionStatus || "pending").replace(/_/g, " ")}</div>
+                                </div>
+                            </div>`,
+                            )
+                            .join("");
+                        $("#referralsPager").innerHTML = `
+                            <button class="px-4 py-2 rounded-full bg-white border border-gray-200 disabled:opacity-40 font-medium hover:bg-gray-50" ${page <= 1 ? "disabled" : ""} onclick="window.__refPrev()">← Prev</button>
+                            <span class="text-gray-400">Page ${data.page} of ${Math.max(1, Math.ceil(data.total / data.pageSize))}</span>
+                            <button class="px-4 py-2 rounded-full bg-white border border-gray-200 disabled:opacity-40 font-medium hover:bg-gray-50" ${page * data.pageSize >= data.total ? "disabled" : ""} onclick="window.__refNext()">Next →</button>`;
+                    }
+                }
+                window.__refPrev = () =>
+                    loadReferrals(Math.max(1, refPage - 1));
+                window.__refNext = () => loadReferrals(refPage + 1);
+
+                // WALLET
+                let walPage = 1;
+                async function loadWallet(page) {
+                    walPage = page;
+                    const data = await api(
+                        "/api/member/wallet/transactions?page=" +
+                            page +
+                            "&pageSize=10",
+                    );
+                    const list = $("#walletList");
+                    if (!data.items.length) {
+                        list.innerHTML =
+                            '<div class="p-8 text-sm text-gray-400 text-center">No wallet transactions yet.</div>';
+                        $("#walletPager").innerHTML = "";
+                    } else {
+                        list.innerHTML = data.items
+                            .map(
+                                (t) => `
+                            <div class="px-4 md:px-6 py-4 flex items-center justify-between gap-4">
+                                <div>
+                                    <div class="font-medium text-[15px]">${t.description || t.entry_type.replace(/_/g, " ")}</div>
+                                    <div class="text-xs text-gray-500 mt-0.5">${new Date(t.created_at).toLocaleString()}</div>
+                                </div>
+                                <div class="font-semibold text-[15px] ${t.direction === "credit" ? "text-[#34c759]" : "text-black"}">${t.direction === "credit" ? "+" : "-"} ${fmt(t.amount_kobo)}</div>
+                            </div>`,
+                            )
+                            .join("");
+                        $("#walletPager").innerHTML = `
+                            <button class="px-4 py-2 rounded-full bg-white border border-gray-200 disabled:opacity-40 font-medium hover:bg-gray-50" ${page <= 1 ? "disabled" : ""} onclick="window.__walPrev()">← Prev</button>
+                            <span class="text-gray-400">Page ${data.page} of ${Math.max(1, Math.ceil(data.total / data.pageSize))}</span>
+                            <button class="px-4 py-2 rounded-full bg-white border border-gray-200 disabled:opacity-40 font-medium hover:bg-gray-50" ${page * data.pageSize >= data.total ? "disabled" : ""} onclick="window.__walNext()">Next →</button>`;
+                    }
+                }
+                window.__walPrev = () => loadWallet(Math.max(1, walPage - 1));
+                window.__walNext = () => loadWallet(walPage + 1);
+
+                // WITHDRAW
+                $("#withdrawForm").addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    const amount = parseFloat(
+                        $("#withdrawAmount").value || "0",
+                    );
+                    if (!amount || amount <= 0) return;
+                    try {
+                        await api("/api/member/withdrawals", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                amountKobo: Math.round(amount * 100),
+                            }),
+                        });
+                        showMsg(
+                            $("#withdrawMsg"),
+                            "Withdrawal request submitted successfully.",
+                            "ok",
+                        );
+                        $("#withdrawAmount").value = "";
+                        loadWithdrawals();
+                        loadAll();
+                    } catch (err) {
+                        showMsg($("#withdrawMsg"), err.message, "error");
+                    }
+                });
+
+                async function loadWithdrawals() {
+                    const data = await api(
+                        "/api/member/withdrawals?page=1&pageSize=20",
+                    );
+                    const list = $("#withdrawalsList");
+                    if (!data.items.length) {
+                        list.innerHTML =
+                            '<div class="p-8 text-sm text-gray-400 text-center">No withdrawals yet.</div>';
+                        return;
+                    }
+                    list.innerHTML = data.items
+                        .map(
+                            (w) => `
+                        <div class="px-4 md:px-6 py-4 flex items-center justify-between gap-4">
+                            <div>
+                                <div class="font-medium text-[15px]">${fmt(w.amount_kobo)}</div>
+                                <div class="text-xs text-gray-500 mt-0.5">${new Date(w.created_at).toLocaleString()}</div>
+                            </div>
+                            <span class="text-[11px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-full ${
+                                w.status === "paid"
+                                    ? "bg-green-100 text-green-700"
+                                    : w.status === "failed"
+                                      ? "bg-red-100 text-red-700"
+                                      : "bg-orange-100 text-orange-700"
+                            }">${w.status}</span>
+                        </div>`,
+                        )
+                        .join("");
+                }
+
+                // PAYMENTS
+                async function loadPayments() {
+                    const data = await api(
+                        "/api/member/payments?page=1&pageSize=20",
+                    );
+                    const list = $("#paymentsList");
+                    if (!data.items.length) {
+                        list.innerHTML =
+                            '<div class="p-8 text-sm text-gray-400 text-center">No payments yet.</div>';
+                        return;
+                    }
+                    list.innerHTML = data.items
+                        .map(
+                            (p) => `
+                        <div class="px-4 md:px-6 py-4 flex items-center justify-between gap-4">
+                            <div>
+                                <div class="font-medium text-xs font-mono">${p.internal_reference}</div>
+                                <div class="text-xs text-gray-500 mt-0.5">${new Date(p.created_at).toLocaleString()}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-semibold text-[15px]">${fmt(p.actual_amount_kobo || p.expected_amount_kobo)}</div>
+                                <div class="text-[11px] font-bold tracking-wide uppercase mt-0.5 ${p.status === "success" ? "text-[#34c759]" : p.status === "failed" ? "text-red-500" : "text-[#ff9f0a]"}">${p.status}</div>
+                            </div>
+                        </div>`,
+                        )
+                        .join("");
+                }
+
+                // PROFILE
+                $("#profileForm").addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    const fd = new FormData(e.target);
+                    try {
+                        await api("/api/member/profile", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                fullName: fd.get("fullName"),
+                                email: fd.get("email") || null,
+                                payoutPhone: fd.get("payoutPhone"),
+                            }),
+                        });
+                        showMsg(
+                            $("#profileMsg"),
+                            "Profile updated successfully.",
+                            "ok",
+                        );
+                        loadAll();
+                    } catch (err) {
+                        showMsg($("#profileMsg"), err.message, "error");
+                    }
+                });
+                $("#notifBtn").addEventListener("click", async () => {
+                    await fetch("/api/member/notifications/read", {
+                        method: "POST",
+                    });
+                    showMsg(
+                        $("#profileMsg"),
+                        "Notifications marked read.",
+                        "ok",
+                    );
+                });
+
+                // COPY / SHARE
+                $("#copyBtn").addEventListener("click", async () => {
+                    try {
+                        await navigator.clipboard.writeText(
+                            $("#referralUrl").value,
+                        );
+                        $("#copyBtn").textContent = "Copied!";
+                        setTimeout(
+                            () => ($("#copyBtn").textContent = "Copy"),
+                            1500,
+                        );
+                    } catch (e) {}
+                });
+                $("#shareWaBtn").addEventListener("click", () => {
+                    const text = encodeURIComponent(
+                        "Join Referal Kenya and start earning! " +
+                            $("#referralUrl").value,
+                    );
+                    window.open("https://wa.me/?text=" + text, "_blank");
+                });
+
+                // PAYMENT MODAL
+                let currentPaymentRef = null;
+                let pollTimer = null;
+                let pollDeadline = 0;
+
+                function openPaymentModal(defaultPhone) {
+                    $("#payStep1").classList.remove("hide");
+                    $("#payStep2").classList.add("hide");
+                    $("#payStep3").classList.add("hide");
+                    $("#payStep4").classList.add("hide");
+                    $("#payErrMsg").classList.add("hide");
+                    if (defaultPhone) $("#payPhone").value = defaultPhone;
+                    $("#payModal").classList.remove("hide");
+                }
+                function closePaymentModal() {
+                    $("#payModal").classList.add("hide");
+                    if (pollTimer) clearInterval(pollTimer);
+                }
+                $("#payCancelBtn").addEventListener("click", closePaymentModal);
+                $("#payNowBtn").addEventListener("click", () =>
+                    openPaymentModal(""),
+                );
+
+                $("#payChargeBtn").addEventListener("click", async () => {
+                    const phone = $("#payPhone").value.trim();
+                    if (!phone) {
+                        showMsg(
+                            $("#payErrMsg"),
+                            "Enter your M-Pesa number",
+                            "error",
+                        );
+                        return;
+                    }
+                    $("#payErrMsg").classList.add("hide");
+                    $("#payStep1").classList.add("hide");
+                    $("#payStep2").classList.remove("hide");
+                    try {
+                        const data = await api("/api/payments/charge", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ phone }),
+                        });
+                        currentPaymentRef = data.reference;
+                        if (data.status === "success") {
+                            finishPayment(true);
+                            return;
+                        }
+                        startPolling();
+                    } catch (e) {
+                        $("#payStep2").classList.add("hide");
+                        $("#payStep1").classList.remove("hide");
+                        showMsg($("#payErrMsg"), e.message, "error");
+                    }
+                });
+
+                function startPolling() {
+                    pollDeadline = Date.now() + 3 * 60 * 1000;
+                    if (pollTimer) clearInterval(pollTimer);
+                    let elapsed = 0;
+                    pollTimer = setInterval(async () => {
+                        elapsed += 3;
+                        $("#payTimer").textContent =
+                            `Waiting for confirmation… (${elapsed}s)`;
+                        if (Date.now() > pollDeadline) {
+                            clearInterval(pollTimer);
+                            $("#payStep2").classList.add("hide");
+                            $("#payStep4").classList.remove("hide");
+                            $("#payFailText").textContent =
+                                "Payment timed out. Please try again.";
+                            return;
+                        }
+                        try {
+                            const d = await api(
+                                "/api/payments/verify/" +
+                                    encodeURIComponent(currentPaymentRef),
+                            );
+                            if (d.status === "success" || d.alreadyProcessed) {
+                                clearInterval(pollTimer);
+                                finishPayment(true);
+                            } else if (
+                                d.status === "failed" ||
+                                d.status === "abandoned"
+                            ) {
+                                clearInterval(pollTimer);
+                                finishPayment(
+                                    false,
+                                    "Payment was not completed",
+                                );
+                            }
+                        } catch (e) {}
+                    }, 3000);
+                }
+
+                function finishPayment(success, message) {
+                    $("#payStep2").classList.add("hide");
+                    if (success) {
+                        $("#payStep3").classList.remove("hide");
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        $("#payStep4").classList.remove("hide");
+                        $("#payFailText").textContent =
+                            message || "The payment was not completed.";
+                    }
+                }
+
+                $("#payRetryBtn").addEventListener("click", () => {
+                    $("#payStep4").classList.add("hide");
+                    $("#payStep1").classList.remove("hide");
+                });
+
+                boot();
+            })();
+        </script>
+    </body>
+</html>

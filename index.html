@@ -1,0 +1,897 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
+        <meta name="theme-color" content="#ffffff" />
+        <title>Referal Kenya — Earn by sharing</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            body {
+                -webkit-font-smoothing: antialiased;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    Helvetica, Arial, sans-serif;
+                background-color: #f5f5f7;
+                color: #1d1d1f;
+            }
+            .apple-card {
+                background: #fff;
+                border-radius: 24px;
+                box-shadow:
+                    0 4px 24px rgba(0, 0, 0, 0.04),
+                    0 1px 2px rgba(0, 0, 0, 0.04);
+                border: 1px solid rgba(0, 0, 0, 0.02);
+            }
+            .apple-input {
+                background: #fff;
+                border: 1px solid #d2d2d7;
+                border-radius: 12px;
+                transition: all 0.2s ease;
+            }
+            .apple-input:focus {
+                outline: none;
+                border-color: #0071e3;
+                box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+            }
+            .apple-btn {
+                background: #0071e3;
+                color: #fff;
+                border-radius: 9999px;
+                font-weight: 500;
+                transition: all 0.2s ease;
+            }
+            .apple-btn:hover {
+                background: #0077ed;
+                transform: scale(0.98);
+            }
+            .apple-btn:active {
+                transform: scale(0.96);
+            }
+            .apple-btn:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+                transform: none;
+            }
+            .gradient-text {
+                background: linear-gradient(135deg, #0071e3 0%, #34c759 100%);
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: transparent;
+            }
+            .hide {
+                display: none !important;
+            }
+            .glass-nav {
+                background: rgba(255, 255, 255, 0.8);
+                backdrop-filter: saturate(180%) blur(20px);
+                -webkit-backdrop-filter: saturate(180%) blur(20px);
+            }
+            .segmented-control {
+                background: #f5f5f7;
+                border-radius: 10px;
+                padding: 2px;
+                display: flex;
+                position: relative;
+                margin-bottom: 24px;
+            }
+            .segment-btn {
+                flex: 1;
+                padding: 6px 0;
+                font-size: 14px;
+                font-weight: 500;
+                border-radius: 8px;
+                transition: all 0.2s ease;
+                color: #86868b;
+                z-index: 10;
+            }
+            .segment-btn.active {
+                background: #fff;
+                color: #1d1d1f;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+            .spinner {
+                animation: spin 1s linear infinite;
+            }
+        </style>
+    </head>
+    <body class="min-h-screen">
+        <nav class="sticky top-0 z-40 glass-nav border-b border-gray-200/50">
+            <div
+                class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between"
+            >
+                <a href="/" class="flex items-center gap-2">
+                    <div
+                        class="w-7 h-7 rounded-lg bg-black flex items-center justify-center font-bold text-white text-sm"
+                    >
+                        R
+                    </div>
+                    <span class="font-semibold tracking-tight text-[17px]"
+                        >Referal Kenya</span
+                    >
+                </a>
+                <div class="flex items-center gap-4">
+                    <a
+                        href="/account.html"
+                        id="navAccount"
+                        class="hide text-sm font-medium text-gray-500 hover:text-black transition-colors"
+                        >Dashboard</a
+                    >
+                    <a
+                        href="#register"
+                        id="navLogin"
+                        class="text-sm font-medium text-gray-500 hover:text-black transition-colors"
+                        >Log in</a
+                    >
+                    <a
+                        href="#register"
+                        id="navGetStarted"
+                        class="text-sm font-medium apple-btn px-5 py-2"
+                        >Get started</a
+                    >
+                </div>
+            </div>
+        </nav>
+
+        <section class="relative overflow-hidden pt-12 pb-24">
+            <div
+                class="max-w-6xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center"
+            >
+                <div>
+                    <div
+                        class="inline-flex items-center gap-2 text-xs font-medium bg-white text-gray-600 border border-gray-200 px-3 py-1.5 rounded-full mb-6 shadow-sm"
+                    >
+                        <span
+                            class="w-2 h-2 bg-green-500 rounded-full animate-pulse"
+                        ></span>
+                        M-Pesa payouts • Verified payments
+                    </div>
+                    <h1
+                        class="text-5xl md:text-6xl font-bold tracking-tight leading-[1.05]"
+                    >
+                        Share your link.<br />
+                        <span class="gradient-text">Earn KSh 50</span><br />
+                        per paid referral.
+                    </h1>
+                    <p
+                        class="mt-6 text-lg text-gray-500 max-w-md leading-relaxed"
+                    >
+                        Join for a one-time KSh 100 membership. Get your unique
+                        referral link and earn KSh 50 for every person who joins
+                        through it and completes payment.
+                    </p>
+                    <div class="mt-10 grid grid-cols-3 gap-4 max-w-md">
+                        <div class="apple-card p-4 text-center">
+                            <div class="text-2xl font-bold text-black">
+                                KSh 100
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1 font-medium">
+                                Membership
+                            </div>
+                        </div>
+                        <div class="apple-card p-4 text-center">
+                            <div class="text-2xl font-bold text-[#34c759]">
+                                KSh 50
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1 font-medium">
+                                Per referral
+                            </div>
+                        </div>
+                        <div class="apple-card p-4 text-center">
+                            <div class="text-2xl font-bold text-black">
+                                M-Pesa
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1 font-medium">
+                                Fast payouts
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="register" class="apple-card p-8 md:p-10">
+                    <div class="segmented-control">
+                        <button id="tabRegister" class="segment-btn active">
+                            Register
+                        </button>
+                        <button id="tabLogin" class="segment-btn">
+                            Log in
+                        </button>
+                    </div>
+
+                    <!-- REGISTER -->
+                    <div id="registerContainer">
+                        <h2 class="text-2xl font-bold tracking-tight">
+                            Create account
+                        </h2>
+                        <p class="text-sm text-gray-500 mt-1" id="refIndicator">
+                            No referral code applied.
+                        </p>
+                        <form id="registerForm" class="mt-6 space-y-5">
+                            <div>
+                                <label
+                                    class="block text-sm font-medium text-gray-700 mb-1.5"
+                                    >Full name</label
+                                >
+                                <input
+                                    name="fullName"
+                                    required
+                                    class="w-full apple-input px-4 py-3 text-[15px]"
+                                    placeholder="Jane Wanjiku"
+                                />
+                            </div>
+                            <div>
+                                <label
+                                    class="block text-sm font-medium text-gray-700 mb-1.5"
+                                    >Phone (M-Pesa)</label
+                                >
+                                <input
+                                    name="phone"
+                                    required
+                                    inputmode="tel"
+                                    class="w-full apple-input px-4 py-3 text-[15px]"
+                                    placeholder="0712 345 678"
+                                />
+                            </div>
+                            <div>
+                                <label
+                                    class="block text-sm font-medium text-gray-700 mb-1.5"
+                                    >Email
+                                    <span class="text-gray-400 font-normal"
+                                        >(optional)</span
+                                    ></label
+                                >
+                                <input
+                                    name="email"
+                                    type="email"
+                                    class="w-full apple-input px-4 py-3 text-[15px]"
+                                    placeholder="you@example.com"
+                                />
+                            </div>
+                            <div>
+                                <label
+                                    class="block text-sm font-medium text-gray-700 mb-1.5"
+                                    >Payout M-Pesa number</label
+                                >
+                                <input
+                                    name="payoutPhone"
+                                    required
+                                    inputmode="tel"
+                                    class="w-full apple-input px-4 py-3 text-[15px]"
+                                    placeholder="Same as phone if blank"
+                                />
+                            </div>
+                            <div>
+                                <label
+                                    class="block text-sm font-medium text-gray-700 mb-1.5"
+                                    >Password</label
+                                >
+                                <input
+                                    name="password"
+                                    type="password"
+                                    required
+                                    minlength="8"
+                                    class="w-full apple-input px-4 py-3 text-[15px]"
+                                    placeholder="At least 8 characters"
+                                />
+                            </div>
+                            <div>
+                                <label
+                                    class="block text-sm font-medium text-gray-700 mb-1.5"
+                                    >Referral code
+                                    <span class="text-gray-400 font-normal"
+                                        >(auto-filled)</span
+                                    ></label
+                                >
+                                <input
+                                    name="referralCode"
+                                    id="referralCode"
+                                    class="w-full apple-input px-4 py-3 text-[15px]"
+                                    placeholder="Optional"
+                                />
+                            </div>
+                            <label
+                                class="flex items-start gap-3 text-sm text-gray-600 mt-2"
+                            >
+                                <input
+                                    type="checkbox"
+                                    name="acceptTerms"
+                                    required
+                                    class="mt-1 w-4 h-4 rounded border-gray-300 text-[#0071e3] focus:ring-[#0071e3]"
+                                />
+                                <span class="leading-tight"
+                                    >I accept the membership terms, privacy
+                                    notice, and referral programme rules.</span
+                                >
+                            </label>
+                            <button
+                                type="submit"
+                                class="w-full apple-btn py-3.5 text-[17px]"
+                            >
+                                Continue to payment (KSh 100)
+                            </button>
+                            <div
+                                id="registerMsg"
+                                class="text-sm hide rounded-xl px-4 py-3"
+                            ></div>
+                        </form>
+                    </div>
+
+                    <!-- LOGIN -->
+                    <div id="loginContainer" class="hide">
+                        <h2 class="text-2xl font-bold tracking-tight">
+                            Welcome back
+                        </h2>
+                        <p class="text-sm text-gray-500 mt-1">
+                            Log in to manage your referrals and wallet.
+                        </p>
+                        <form id="loginForm" class="mt-6 space-y-5">
+                            <div>
+                                <label
+                                    class="block text-sm font-medium text-gray-700 mb-1.5"
+                                    >Phone or email</label
+                                >
+                                <input
+                                    name="identifier"
+                                    required
+                                    class="w-full apple-input px-4 py-3 text-[15px]"
+                                    placeholder="0712 345 678"
+                                />
+                            </div>
+                            <div>
+                                <label
+                                    class="block text-sm font-medium text-gray-700 mb-1.5"
+                                    >Password</label
+                                >
+                                <input
+                                    name="password"
+                                    type="password"
+                                    required
+                                    class="w-full apple-input px-4 py-3 text-[15px]"
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                class="w-full apple-btn py-3.5 text-[17px]"
+                            >
+                                Log in
+                            </button>
+                            <div
+                                id="loginMsg"
+                                class="text-sm hide rounded-xl px-4 py-3"
+                            ></div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-white py-24 border-t border-gray-200/50">
+            <div class="max-w-6xl mx-auto px-6">
+                <h2
+                    class="text-3xl md:text-4xl font-bold tracking-tight text-center mb-16"
+                >
+                    How it works
+                </h2>
+                <div class="grid md:grid-cols-3 gap-8">
+                    <div class="text-center">
+                        <div
+                            class="w-12 h-12 rounded-2xl bg-blue-50 text-[#0071e3] flex items-center justify-center font-bold text-xl mx-auto mb-5"
+                        >
+                            1
+                        </div>
+                        <h3 class="text-xl font-semibold mb-2">
+                            Join for KSh 100
+                        </h3>
+                        <p class="text-gray-500 leading-relaxed text-[15px]">
+                            Pay a one-time membership fee via M-Pesa. Your
+                            membership activates instantly after verified
+                            payment.
+                        </p>
+                    </div>
+                    <div class="text-center">
+                        <div
+                            class="w-12 h-12 rounded-2xl bg-blue-50 text-[#0071e3] flex items-center justify-center font-bold text-xl mx-auto mb-5"
+                        >
+                            2
+                        </div>
+                        <h3 class="text-xl font-semibold mb-2">
+                            Share your link
+                        </h3>
+                        <p class="text-gray-500 leading-relaxed text-[15px]">
+                            Get a unique referral link in your dashboard. Share
+                            it on WhatsApp or social media.
+                        </p>
+                    </div>
+                    <div class="text-center">
+                        <div
+                            class="w-12 h-12 rounded-2xl bg-green-50 text-[#34c759] flex items-center justify-center font-bold text-xl mx-auto mb-5"
+                        >
+                            3
+                        </div>
+                        <h3 class="text-xl font-semibold mb-2">Earn KSh 50</h3>
+                        <p class="text-gray-500 leading-relaxed text-[15px]">
+                            When someone joins through your link and completes
+                            payment, KSh 50 is credited to your wallet.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="bg-[#f5f5f7] border-t border-gray-200/50 py-12">
+            <div
+                class="max-w-6xl mx-auto px-6 text-sm text-gray-500 flex flex-col md:flex-row items-center justify-between gap-4"
+            >
+                <div>
+                    Copyright © <span id="year"></span> Referal Kenya. All
+                    rights reserved.
+                </div>
+                <div class="flex items-center gap-6">
+                    <a
+                        href="/account.html"
+                        class="hover:text-black transition-colors"
+                        >Member login</a
+                    >
+                    <a
+                        href="/admin.html"
+                        class="hover:text-black transition-colors"
+                        >Admin</a
+                    >
+                </div>
+            </div>
+        </footer>
+
+        <!-- PAYMENT MODAL -->
+        <div
+            id="payModal"
+            class="hide fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center px-4"
+        >
+            <div class="apple-card p-8 w-full max-w-md relative">
+                <!-- step 1: phone -->
+                <div id="payStep1">
+                    <div
+                        class="w-14 h-14 rounded-2xl bg-green-50 flex items-center justify-center mb-5"
+                    >
+                        <svg
+                            class="w-7 h-7 text-[#34c759]"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                            />
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold tracking-tight">
+                        Pay KSh <span id="payAmountLabel">100</span>
+                    </h2>
+                    <p class="text-[15px] text-gray-500 mt-1 mb-6">
+                        Enter your M-Pesa number. We'll send an STK push to
+                        confirm.
+                    </p>
+                    <label
+                        class="block text-sm font-medium text-gray-700 mb-1.5"
+                        >M-Pesa number</label
+                    >
+                    <input
+                        id="payPhone"
+                        inputmode="tel"
+                        class="w-full apple-input px-4 py-3 text-[15px]"
+                        placeholder="0712 345 678"
+                    />
+                    <button
+                        id="payChargeBtn"
+                        class="w-full apple-btn py-3.5 text-[15px] mt-5"
+                    >
+                        Send STK push
+                    </button>
+                    <button
+                        id="payCancelBtn"
+                        class="w-full text-sm text-gray-500 py-3 mt-1 hover:text-black"
+                    >
+                        Cancel
+                    </button>
+                    <div
+                        id="payErrMsg"
+                        class="hide text-sm rounded-xl px-4 py-3 mt-3"
+                    ></div>
+                </div>
+                <!-- step 2: waiting -->
+                <div id="payStep2" class="hide text-center py-4">
+                    <div class="w-16 h-16 mx-auto mb-6 relative">
+                        <div
+                            class="absolute inset-0 rounded-full border-4 border-gray-100"
+                        ></div>
+                        <div
+                            class="absolute inset-0 rounded-full border-4 border-[#0071e3] border-t-transparent spinner"
+                        ></div>
+                    </div>
+                    <h2 class="text-xl font-bold">Check your phone</h2>
+                    <p class="text-[15px] text-gray-500 mt-2">
+                        Enter your M-Pesa PIN to complete the payment of
+                        <span class="font-semibold text-black"
+                            >KSh <span id="payAmountLabel2">100</span></span
+                        >.
+                    </p>
+                    <p id="payTimer" class="text-xs text-gray-400 mt-4">
+                        Waiting for confirmation…
+                    </p>
+                </div>
+                <!-- step 3: success -->
+                <div id="payStep3" class="hide text-center py-4">
+                    <div
+                        class="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-6"
+                    >
+                        <svg
+                            class="w-9 h-9 text-[#34c759]"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="3"
+                                d="M5 13l4 4L19 7"
+                            />
+                        </svg>
+                    </div>
+                    <h2 class="text-xl font-bold">Payment successful</h2>
+                    <p class="text-[15px] text-gray-500 mt-2">
+                        Your membership is active. Redirecting to your
+                        dashboard…
+                    </p>
+                </div>
+                <!-- step 4: failed -->
+                <div id="payStep4" class="hide text-center py-4">
+                    <div
+                        class="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-6"
+                    >
+                        <svg
+                            class="w-9 h-9 text-red-500"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="3"
+                                d="M6 18L18 6M6 6l12 12"
+                            />
+                        </svg>
+                    </div>
+                    <h2 class="text-xl font-bold">Payment not completed</h2>
+                    <p id="payFailText" class="text-[15px] text-gray-500 mt-2">
+                        The payment was not completed. You can try again.
+                    </p>
+                    <button id="payRetryBtn" class="w-full apple-btn py-3 mt-5">
+                        Try again
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            (() => {
+                const $ = (s) => document.querySelector(s);
+                const $$ = (s) => document.querySelectorAll(s);
+                $("#year").textContent = new Date().getFullYear();
+
+                // Cached config
+                let config = null;
+                (function loadConfig() {
+                    const cached = localStorage.getItem("rk_config");
+                    if (cached) {
+                        try {
+                            config = JSON.parse(cached);
+                            applyConfig();
+                        } catch (e) {}
+                    }
+                    fetch("/api/config")
+                        .then((r) => r.json())
+                        .then((d) => {
+                            config = d;
+                            localStorage.setItem(
+                                "rk_config",
+                                JSON.stringify(d),
+                            );
+                            applyConfig();
+                        })
+                        .catch(() => {});
+                })();
+                function applyConfig() {
+                    if (!config) return;
+                    const fee = (config.registrationFeeKobo || 10000) / 100;
+                    $("#payAmountLabel").textContent = fee;
+                    $("#payAmountLabel2").textContent = fee;
+                }
+
+                // Tab switching
+                const tabRegister = $("#tabRegister");
+                const tabLogin = $("#tabLogin");
+                const regContainer = $("#registerContainer");
+                const logContainer = $("#loginContainer");
+                function switchTab(tab) {
+                    if (tab === "register") {
+                        tabRegister.classList.add("active");
+                        tabLogin.classList.remove("active");
+                        regContainer.classList.remove("hide");
+                        logContainer.classList.add("hide");
+                    } else {
+                        tabLogin.classList.add("active");
+                        tabRegister.classList.remove("active");
+                        logContainer.classList.remove("hide");
+                        regContainer.classList.add("hide");
+                    }
+                }
+                tabRegister.addEventListener("click", () =>
+                    switchTab("register"),
+                );
+                tabLogin.addEventListener("click", () => switchTab("login"));
+                $("#navGetStarted").addEventListener("click", (e) => {
+                    e.preventDefault();
+                    switchTab("register");
+                });
+                $("#navLogin").addEventListener("click", (e) => {
+                    e.preventDefault();
+                    switchTab("login");
+                });
+
+                // Referral capture
+                const params = new URLSearchParams(location.search);
+                const ref = (params.get("ref") || "").toUpperCase();
+                if (ref) {
+                    $("#referralCode").value = ref;
+                    $("#refIndicator").textContent = "Referred by code: " + ref;
+                    $("#refIndicator").classList.add(
+                        "text-[#34c759]",
+                        "font-medium",
+                    );
+                    const fp = btoa(
+                        navigator.userAgent +
+                            "|" +
+                            screen.width +
+                            "x" +
+                            screen.height,
+                    ).slice(0, 60);
+                    fetch("/api/referral/click", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ code: ref, fingerprint: fp }),
+                    }).catch(() => {});
+                }
+
+                // Check session
+                fetch("/api/auth/me")
+                    .then((r) => (r.ok ? r.json() : null))
+                    .then((d) => {
+                        if (d && d.user) {
+                            $("#navAccount").classList.remove("hide");
+                            $("#navLogin").classList.add("hide");
+                            $("#navGetStarted").classList.add("hide");
+                        }
+                    })
+                    .catch(() => {});
+
+                function showMsg(el, text, type) {
+                    el.textContent = text;
+                    el.classList.remove("hide");
+                    el.className =
+                        "text-sm rounded-xl px-4 py-3 " +
+                        (type === "error"
+                            ? "bg-red-50 text-red-600 border border-red-200"
+                            : "bg-green-50 text-green-700 border border-green-200");
+                }
+
+                // Payment modal state
+                let currentPaymentRef = null;
+                let pollTimer = null;
+                let pollDeadline = 0;
+
+                function openPaymentModal(defaultPhone) {
+                    $("#payStep1").classList.remove("hide");
+                    $("#payStep2").classList.add("hide");
+                    $("#payStep3").classList.add("hide");
+                    $("#payStep4").classList.add("hide");
+                    $("#payErrMsg").classList.add("hide");
+                    if (defaultPhone) $("#payPhone").value = defaultPhone;
+                    $("#payModal").classList.remove("hide");
+                }
+                function closePaymentModal() {
+                    $("#payModal").classList.add("hide");
+                    if (pollTimer) clearInterval(pollTimer);
+                }
+                $("#payCancelBtn").addEventListener("click", closePaymentModal);
+
+                $("#payChargeBtn").addEventListener("click", async () => {
+                    const phone = $("#payPhone").value.trim();
+                    if (!phone) {
+                        showMsg(
+                            $("#payErrMsg"),
+                            "Enter your M-Pesa number",
+                            "error",
+                        );
+                        return;
+                    }
+                    $("#payErrMsg").classList.add("hide");
+                    $("#payStep1").classList.add("hide");
+                    $("#payStep2").classList.remove("hide");
+                    try {
+                        const res = await fetch("/api/payments/charge", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ phone }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok)
+                            throw new Error(data.error || "Charge failed");
+                        currentPaymentRef = data.reference;
+                        if (data.status === "success") {
+                            finishPayment(true);
+                            return;
+                        }
+                        startPolling();
+                    } catch (e) {
+                        $("#payStep2").classList.add("hide");
+                        $("#payStep1").classList.remove("hide");
+                        showMsg($("#payErrMsg"), e.message, "error");
+                    }
+                });
+
+                function startPolling() {
+                    pollDeadline = Date.now() + 3 * 60 * 1000;
+                    if (pollTimer) clearInterval(pollTimer);
+                    let elapsed = 0;
+                    pollTimer = setInterval(async () => {
+                        elapsed += 3;
+                        $("#payTimer").textContent =
+                            `Waiting for confirmation… (${elapsed}s)`;
+                        if (Date.now() > pollDeadline) {
+                            clearInterval(pollTimer);
+                            $("#payStep2").classList.add("hide");
+                            $("#payStep4").classList.remove("hide");
+                            $("#payFailText").textContent =
+                                "Payment timed out. Please try again.";
+                            return;
+                        }
+                        try {
+                            const r = await fetch(
+                                "/api/payments/verify/" +
+                                    encodeURIComponent(currentPaymentRef),
+                            );
+                            const d = await r.json();
+                            if (d.status === "success" || d.alreadyProcessed) {
+                                clearInterval(pollTimer);
+                                finishPayment(true);
+                            } else if (
+                                d.status === "failed" ||
+                                d.status === "abandoned"
+                            ) {
+                                clearInterval(pollTimer);
+                                finishPayment(
+                                    false,
+                                    "Payment was not completed",
+                                );
+                            }
+                        } catch (e) {}
+                    }, 3000);
+                }
+
+                function finishPayment(success, message) {
+                    $("#payStep2").classList.add("hide");
+                    if (success) {
+                        $("#payStep3").classList.remove("hide");
+                        setTimeout(() => {
+                            window.location.href =
+                                "/account.html?payment=success";
+                        }, 1500);
+                    } else {
+                        $("#payStep4").classList.remove("hide");
+                        $("#payFailText").textContent =
+                            message || "The payment was not completed.";
+                    }
+                }
+
+                $("#payRetryBtn").addEventListener("click", () => {
+                    $("#payStep4").classList.add("hide");
+                    $("#payStep1").classList.remove("hide");
+                });
+
+                // REGISTER
+                $("#registerForm").addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    const form = e.target;
+                    const btn = form.querySelector("button[type=submit]");
+                    btn.disabled = true;
+                    btn.textContent = "Creating account...";
+                    const fd = new FormData(form);
+                    const payload = {
+                        fullName: fd.get("fullName"),
+                        phone: fd.get("phone"),
+                        email: fd.get("email") || null,
+                        payoutPhone: fd.get("payoutPhone") || fd.get("phone"),
+                        password: fd.get("password"),
+                        referralCode:
+                            (fd.get("referralCode") || "")
+                                .trim()
+                                .toUpperCase() || null,
+                        acceptTerms: fd.get("acceptTerms") === "on",
+                    };
+                    try {
+                        const res = await fetch("/api/auth/register", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(payload),
+                        });
+                        const data = await res.json();
+                        if (!res.ok)
+                            throw new Error(
+                                data.error || "Registration failed",
+                            );
+                        showMsg(
+                            $("#registerMsg"),
+                            "Account created. Complete your payment below.",
+                            "ok",
+                        );
+                        btn.disabled = false;
+                        btn.textContent = "Continue to payment (KSh 100)";
+                        openPaymentModal(payload.phone);
+                    } catch (err) {
+                        showMsg($("#registerMsg"), err.message, "error");
+                        btn.disabled = false;
+                        btn.textContent = "Continue to payment (KSh 100)";
+                    }
+                });
+
+                // LOGIN
+                $("#loginForm").addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    const form = e.target;
+                    const btn = form.querySelector("button[type=submit]");
+                    btn.disabled = true;
+                    btn.textContent = "Logging in...";
+                    const fd = new FormData(form);
+                    try {
+                        const res = await fetch("/api/auth/login", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                identifier: fd.get("identifier"),
+                                password: fd.get("password"),
+                            }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok)
+                            throw new Error(data.error || "Login failed");
+                        showMsg(
+                            $("#loginMsg"),
+                            "Success! Redirecting...",
+                            "ok",
+                        );
+                        setTimeout(
+                            () => (window.location.href = "/account.html"),
+                            400,
+                        );
+                    } catch (err) {
+                        showMsg($("#loginMsg"), err.message, "error");
+                        btn.disabled = false;
+                        btn.textContent = "Log in";
+                    }
+                });
+            })();
+        </script>
+    </body>
+</html>
