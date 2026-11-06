@@ -136,43 +136,37 @@
                     0 2px 8px rgba(0, 0, 0, 0.08);
             }
 
-            /* ---- Hero (solid blue) ---- */
             /* ---- Hero (rich black with texture) ---- */
             .apple-card.hero-gradient {
                 background:
-                    /* soft white glow top-right */
                     radial-gradient(
                         circle at 92% -10%,
                         rgba(255, 255, 255, 0.14),
                         transparent 45%
                     ),
-                    /* cool blue tint bottom-left */
                     radial-gradient(
-                            circle at 0% 110%,
-                            rgba(0, 113, 227, 0.22),
-                            transparent 55%
-                        ),
-                    /* subtle green sparkle mid-right */
+                        circle at 0% 110%,
+                        rgba(0, 113, 227, 0.22),
+                        transparent 55%
+                    ),
                     radial-gradient(
-                            circle at 85% 70%,
-                            rgba(52, 199, 89, 0.1),
-                            transparent 40%
-                        ),
-                    /* fine diagonal grid texture */
+                        circle at 85% 70%,
+                        rgba(52, 199, 89, 0.1),
+                        transparent 40%
+                    ),
                     repeating-linear-gradient(
-                            135deg,
-                            rgba(255, 255, 255, 0.025) 0px,
-                            rgba(255, 255, 255, 0.025) 1px,
-                            transparent 1px,
-                            transparent 6px
-                        ),
-                    /* base black-to-charcoal gradient */
+                        135deg,
+                        rgba(255, 255, 255, 0.025) 0px,
+                        rgba(255, 255, 255, 0.025) 1px,
+                        transparent 1px,
+                        transparent 6px
+                    ),
                     linear-gradient(
-                            160deg,
-                            #0a0a0c 0%,
-                            #1a1a1f 55%,
-                            #0f0f12 100%
-                        );
+                        160deg,
+                        #0a0a0c 0%,
+                        #1a1a1f 55%,
+                        #0f0f12 100%
+                    );
                 box-shadow:
                     0 20px 60px rgba(0, 0, 0, 0.45),
                     0 4px 14px rgba(0, 0, 0, 0.25),
@@ -289,10 +283,13 @@
                 box-shadow: 0 4px 20px rgba(0, 113, 227, 0.25);
             }
 
-            /* ---- Withdraw modal states ---- */
-            .modal-amount {
-                font-size: 15px;
-                line-height: 1.4;
+            /* ---- Ad container ---- */
+            .ad-container {
+                background: #fff;
+                border: 1px dashed #d2d2d7;
+                border-radius: 16px;
+                padding: 12px;
+                min-height: 80px;
             }
         </style>
     </head>
@@ -475,7 +472,7 @@
 
                     <!-- ============ OVERVIEW ============ -->
                     <div id="view-overview" class="space-y-6">
-                        <!-- Hero balance card (solid blue) -->
+                        <!-- Hero balance card (rich black) -->
                         <div
                             class="apple-card hero-gradient p-6 md:p-8 relative overflow-hidden"
                         >
@@ -729,7 +726,6 @@
                                 </div>
                             </div>
 
-                            <!-- Referral stats -->
                             <div
                                 class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50 rounded-2xl p-4 border border-gray-100"
                             >
@@ -869,7 +865,6 @@
 
                     <!-- ============ WALLET ============ -->
                     <div id="view-wallet" class="hide space-y-6">
-                        <!-- Wallet overview with donut -->
                         <div class="apple-card p-6 md:p-8">
                             <div class="flex items-center justify-between mb-6">
                                 <h3 class="text-xl font-bold tracking-tight">
@@ -990,7 +985,6 @@
                             </div>
                         </div>
 
-                        <!-- Withdraw card -->
                         <div class="apple-card p-6 md:p-8">
                             <div
                                 class="flex items-start justify-between gap-4 flex-wrap"
@@ -1044,7 +1038,6 @@
                             </div>
                         </div>
 
-                        <!-- Ledger -->
                         <div class="apple-card overflow-hidden">
                             <div
                                 class="px-6 py-4 border-b border-gray-100 bg-gray-50/50"
@@ -1096,6 +1089,7 @@
 
                     <!-- ============ PROFILE ============ -->
                     <div id="view-profile" class="hide space-y-6">
+                        <!-- Profile hero -->
                         <div class="apple-card p-6 md:p-8">
                             <div class="flex items-center gap-5 flex-wrap">
                                 <div
@@ -1201,6 +1195,7 @@
                             </div>
                         </div>
 
+                        <!-- Edit form -->
                         <div class="apple-card p-6 md:p-8">
                             <h3 class="text-xl font-bold tracking-tight mb-6">
                                 Personal Information
@@ -1274,6 +1269,42 @@
                             ></div>
                         </div>
 
+                        <!-- ============================================ -->
+                        <!-- MONETAG IN-PAGE PUSH AD                       -->
+                        <!-- Zone 12203383 — harmless to edit here         -->
+                        <!-- ============================================ -->
+                        <div class="ad-container">
+                            <div
+                                class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 text-center"
+                            >
+                                Sponsored
+                            </div>
+                            <div class="flex justify-center min-h-[60px]">
+                                <script>
+                                    (function (s) {
+                                        s.dataset.zone = "12203383";
+                                        s.src = "https://nap5k.com/tag.min.js";
+                                    })(
+                                        [
+                                            document.documentElement,
+                                            document.body,
+                                        ]
+                                            .filter(Boolean)
+                                            .pop()
+                                            .appendChild(
+                                                document.createElement(
+                                                    "script",
+                                                ),
+                                            ),
+                                    );
+                                </script>
+                            </div>
+                        </div>
+                        <!-- ============================================ -->
+                        <!-- END MONETAG AD                               -->
+                        <!-- ============================================ -->
+
+                        <!-- Danger zone -->
                         <div
                             class="apple-card p-6 md:p-8 border-2 border-red-200 bg-red-50/40"
                         >
@@ -1558,7 +1589,6 @@
                         </button>
                     </div>
 
-                    <!-- Available (compact) -->
                     <div
                         class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-5 flex items-center justify-between"
                     >
@@ -1806,7 +1836,6 @@
                             : "bg-green-50 text-green-700 border border-green-200");
                 }
 
-                /* ---- Enhanced toast ---- */
                 function showToast(text, type) {
                     const el = document.createElement("div");
                     const bg =
@@ -1995,7 +2024,6 @@
                         ]);
                         connectSSE();
                         handlePaymentQuery();
-                        // Start live ticker after we know own user id
                         startLiveWithdrawals();
                     } catch (e) {
                         $("#loginView").classList.remove("hide");
@@ -2087,7 +2115,6 @@
                     donut.style.background = `conic-gradient(${stops.join(", ")})`;
                 }
 
-                // ---- Main load ----
                 async function loadAll() {
                     const data = await api("/api/member/overview");
                     currentUser = data.user;
@@ -2112,7 +2139,6 @@
                         data.user.status === "active",
                     );
 
-                    // Hero
                     $("#statAvailable").textContent = fmt(
                         data.wallet.availableKobo,
                     );
@@ -2127,7 +2153,6 @@
                     $("#statReferrals").textContent =
                         data.referralStats.paidReferrals || 0;
 
-                    // Referral
                     const dynamicRefUrl =
                         window.location.origin +
                         "/?ref=" +
@@ -2143,7 +2168,6 @@
                         (data.referralStats.conversionRate * 100).toFixed(1) +
                         "%";
 
-                    // Wallet donut
                     updateDonut(data.wallet);
                     $("#donutTotal").textContent = fmtShort(
                         data.wallet.totalEarningsKobo,
@@ -2165,14 +2189,12 @@
                         data.wallet.availableKobo,
                     );
 
-                    // Wallet payout phone
                     if (data.user.payoutPhone) {
                         $("#walletPayoutPhone").textContent = fmtPhone(
                             data.user.payoutPhone,
                         );
                     }
 
-                    // Profile
                     const name = data.user.fullName || "You";
                     const initials = name
                         .trim()
@@ -2304,9 +2326,7 @@
                         list.innerHTML = items
                             .map(renderLiveWithdrawal)
                             .join("");
-                    } catch (e) {
-                        // Silent — the ticker is cosmetic
-                    }
+                    } catch (e) {}
                 }
 
                 function renderLiveWithdrawal(item) {
@@ -2438,7 +2458,6 @@
                         (currentWallet && currentWallet.availableKobo) || 0;
                     $("#wdAvailable").textContent = fmt(avail);
 
-                    // Payout select
                     const sel = $("#wdPayout");
                     sel.innerHTML = "";
                     const saved = currentUser && currentUser.payoutPhone;
@@ -2528,7 +2547,6 @@
                     setWdStep(2);
 
                     try {
-                        // If user picked a different payout number, save it first
                         if (
                             currentUser &&
                             selected !== currentUser.payoutPhone
@@ -2561,20 +2579,17 @@
                             return;
                         }
 
-                        // Success or queued — enhanced confirmation
                         $("#wdSuccessAmount").textContent =
                             "KSh " + amount.toLocaleString();
                         $("#wdSuccessPhone").textContent = fmtPhone(selected);
                         setWdStep(3);
 
-                        // Refresh data
                         loadAll();
                         loadWithdrawals();
                         loadOverviewActivity();
                         loadLiveWithdrawals();
                     } catch (e) {
                         const msg = String(e.message || "Withdrawal failed.");
-                        // Friendly rewrite for the "whole commissions" case
                         $("#wdFailText").textContent =
                             /whole commissions/i.test(msg)
                                 ? "Try withdrawing a whole number of commissions (e.g. a multiple of KSh 50), or your entire available balance."

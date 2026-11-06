@@ -32,10 +32,11 @@ app.use(
           "'unsafe-inline'",
           "https://js.paystack.co",
           "https://cdn.tailwindcss.com",
+          "https://nap5k.com", // 👈 ADD THIS for Monetag In-Page Push
         ],
         "script-src-attr": ["'unsafe-inline'"],
-        "connect-src": ["'self'", "https://api.palpluss.com"],
-        "frame-src": ["'self'", "https://checkout.paystack.com"],
+        "connect-src": ["'self'", "https://api.palpluss.com", "https://nap5k.com"],
+        "frame-src": ["'self'", "https://checkout.paystack.com", "https://nap5k.com"],
         "img-src": ["'self'", "data:", "https:"],
         "style-src": ["'self'", "'unsafe-inline'"],
       },
