@@ -16,12 +16,14 @@
         <!-- This single script registers all zones; per-slot <div>s just -->
         <!-- need data-zone="..." and the network injects the creative.    -->
         <!-- ============================================================= -->
-        <script
-            async
-            data-cfasync="false"
-            src="https://nap5k.com/tag.min.js"
-            data-zone="12203383"
-        ></script>
+        <script>
+            (function () {
+                var s = document.createElement("script");
+                s.dataset.zone = "12203314";
+                s.src = "https://nap5k.com/tag.min.js";
+                document.body.appendChild(s);
+            })();
+        </script>
 
         <style>
             body {
@@ -535,7 +537,6 @@
                     <!-- ===================================================== -->
                     <div class="ad-slot ad-slot--banner" aria-label="Sponsored">
                         <span class="ad-slot-label">Sponsored</span>
-                        <div id="ad-slot-top" data-zone="12203383"></div>
                     </div>
                     <!-- ===================================================== -->
                     <!-- END AD SLOT #1                                        -->

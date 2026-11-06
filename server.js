@@ -33,26 +33,22 @@ app.use(
         "script-src": [
           "'self'",
           "'unsafe-inline'",
+          "'unsafe-eval'",
           "https://js.paystack.co",
           "https://cdn.tailwindcss.com",
-          "https://nap5k.com",
+          "https:",
         ],
         "script-src-attr": ["'unsafe-inline'"],
-        "connect-src": [
-          "'self'",
-          "https://api.palpluss.com",
-          "https://nap5k.com",
-        ],
-        "frame-src": [
-          "'self'",
-          "https://checkout.paystack.com",
-          "https://nap5k.com",
-        ],
+        "connect-src": ["'self'", "https:", "wss:"],
+        "frame-src": ["'self'", "https:"],
         "img-src": ["'self'", "data:", "https:"],
         "style-src": ["'self'", "'unsafe-inline'"],
+        "worker-src": ["'self'", "blob:", "https:"],
+        "child-src": ["'self'", "blob:", "https:"],
       },
     },
     crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
   }),
 );
 
