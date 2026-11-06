@@ -9,6 +9,20 @@
         <meta name="theme-color" content="#f5f5f7" />
         <title>My Account — Referal Kenya</title>
         <script src="https://cdn.tailwindcss.com"></script>
+
+        <!-- ============================================================= -->
+        <!-- MONETAG GLOBAL LOADER (Banner + Native zones)                 -->
+        <!-- Replace BOTH zone ids with the real ids from your dashboard.  -->
+        <!-- This single script registers all zones; per-slot <div>s just -->
+        <!-- need data-zone="..." and the network injects the creative.    -->
+        <!-- ============================================================= -->
+        <script
+            async
+            data-cfasync="false"
+            src="https://nap5k.com/tag.min.js"
+            data-zone="12203383"
+        ></script>
+
         <style>
             body {
                 -webkit-font-smoothing: antialiased;
@@ -283,13 +297,57 @@
                 box-shadow: 0 4px 20px rgba(0, 113, 227, 0.25);
             }
 
-            /* ---- Ad container ---- */
-            .ad-container {
+            /* ================================================================
+               AD SLOT STYLES
+               Four labeled slots. Reserve fixed heights so layout does NOT
+               shift when the ad renders (CLS = 0). The network fills the
+               min-height area, and the label keeps it clearly "Sponsored".
+               ================================================================ */
+            .ad-slot {
                 background: #fff;
-                border: 1px dashed #d2d2d7;
+                border: 1px solid #ececef;
                 border-radius: 16px;
-                padding: 12px;
+                overflow: hidden;
+                position: relative;
+            }
+            .ad-slot-label {
+                position: absolute;
+                top: 6px;
+                left: 8px;
+                font-size: 9px;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: #b0b0b8;
+                pointer-events: none;
+            }
+            /* Banner: 320x50 mobile, 728x90 desktop — reserve height */
+            .ad-slot--banner {
+                min-height: 60px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 14px 8px 8px;
+            }
+            @media (min-width: 768px) {
+                .ad-slot--banner {
+                    min-height: 100px;
+                }
+            }
+            /* Native: taller, image + headline + body */
+            .ad-slot--native {
+                min-height: 140px;
+                padding: 20px 12px 12px;
+            }
+            @media (min-width: 768px) {
+                .ad-slot--native {
+                    min-height: 180px;
+                }
+            }
+            /* In-page push: small footer rectangle */
+            .ad-slot--push {
                 min-height: 80px;
+                padding: 14px 12px 12px;
             }
         </style>
     </head>
@@ -469,6 +527,19 @@
                             Pay now
                         </button>
                     </div>
+
+                    <!-- ===================================================== -->
+                    <!-- AD SLOT #1 — TOP BANNER (Above the fold)             -->
+                    <!-- Highest-value banner slot. Users land here first.    -->
+                    <!-- Replace data-zone below with your BANNER zone id.    -->
+                    <!-- ===================================================== -->
+                    <div class="ad-slot ad-slot--banner" aria-label="Sponsored">
+                        <span class="ad-slot-label">Sponsored</span>
+                        <div id="ad-slot-top" data-zone="12203383"></div>
+                    </div>
+                    <!-- ===================================================== -->
+                    <!-- END AD SLOT #1                                        -->
+                    <!-- ===================================================== -->
 
                     <!-- ============ OVERVIEW ============ -->
                     <div id="view-overview" class="space-y-6">
@@ -840,6 +911,25 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- ================================================= -->
+                        <!-- AD SLOT #2 — NATIVE, BELOW OVERVIEW CONTENT        -->
+                        <!-- Content-matched card. Sits after the "Recent       -->
+                        <!-- activity" grid, before the tab ends.                -->
+                        <!-- ================================================= -->
+                        <div
+                            class="ad-slot ad-slot--native"
+                            aria-label="Recommended"
+                        >
+                            <span class="ad-slot-label">Recommended</span>
+                            <div
+                                id="ad-slot-native-overview"
+                                data-zone="12203383"
+                            ></div>
+                        </div>
+                        <!-- ================================================= -->
+                        <!-- END AD SLOT #2                                    -->
+                        <!-- ================================================= -->
                     </div>
 
                     <!-- ============ REFERRALS ============ -->
@@ -861,6 +951,25 @@
                                 class="px-6 py-4 flex justify-between items-center text-sm bg-gray-50 border-t border-gray-100"
                             ></div>
                         </div>
+
+                        <!-- ================================================= -->
+                        <!-- AD SLOT #3 — BANNER, END OF REFERRALS TAB          -->
+                        <!-- Low intrusion: users have finished scanning the    -->
+                        <!-- list and reach the end of the tab.                  -->
+                        <!-- ================================================= -->
+                        <div
+                            class="ad-slot ad-slot--banner"
+                            aria-label="Sponsored"
+                        >
+                            <span class="ad-slot-label">Sponsored</span>
+                            <div
+                                id="ad-slot-referrals-bottom"
+                                data-zone="12203383"
+                            ></div>
+                        </div>
+                        <!-- ================================================= -->
+                        <!-- END AD SLOT #3                                    -->
+                        <!-- ================================================= -->
                     </div>
 
                     <!-- ============ WALLET ============ -->
@@ -1037,6 +1146,25 @@
                                 </button>
                             </div>
                         </div>
+
+                        <!-- ================================================= -->
+                        <!-- AD SLOT #4 — BANNER, END OF WALLET TAB             -->
+                        <!-- Below the withdraw CTA. User has already decided   -->
+                        <!-- whether to act; low interruption risk.              -->
+                        <!-- ================================================= -->
+                        <div
+                            class="ad-slot ad-slot--banner"
+                            aria-label="Sponsored"
+                        >
+                            <span class="ad-slot-label">Sponsored</span>
+                            <div
+                                id="ad-slot-wallet-bottom"
+                                data-zone="12203383"
+                            ></div>
+                        </div>
+                        <!-- ================================================= -->
+                        <!-- END AD SLOT #4                                    -->
+                        <!-- ================================================= -->
 
                         <div class="apple-card overflow-hidden">
                             <div
@@ -1269,40 +1397,24 @@
                             ></div>
                         </div>
 
-                        <!-- ============================================ -->
-                        <!-- MONETAG IN-PAGE PUSH AD                       -->
-                        <!-- Zone 12203383 — harmless to edit here         -->
-                        <!-- ============================================ -->
-                        <div class="ad-container">
+                        <!-- ================================================= -->
+                        <!-- AD SLOT #5 — IN-PAGE PUSH                          -->
+                        <!-- Small footer rectangle, below the profile form.    -->
+                        <!-- Only 1 push zone per page recommended.             -->
+                        <!-- ================================================= -->
+                        <div
+                            class="ad-slot ad-slot--push"
+                            aria-label="Sponsored"
+                        >
+                            <span class="ad-slot-label">Sponsored</span>
                             <div
-                                class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 text-center"
-                            >
-                                Sponsored
-                            </div>
-                            <div class="flex justify-center min-h-[60px]">
-                                <script>
-                                    (function (s) {
-                                        s.dataset.zone = "12203383";
-                                        s.src = "https://nap5k.com/tag.min.js";
-                                    })(
-                                        [
-                                            document.documentElement,
-                                            document.body,
-                                        ]
-                                            .filter(Boolean)
-                                            .pop()
-                                            .appendChild(
-                                                document.createElement(
-                                                    "script",
-                                                ),
-                                            ),
-                                    );
-                                </script>
-                            </div>
+                                id="ad-slot-push-profile"
+                                data-zone="12203383"
+                            ></div>
                         </div>
-                        <!-- ============================================ -->
-                        <!-- END MONETAG AD                               -->
-                        <!-- ============================================ -->
+                        <!-- ================================================= -->
+                        <!-- END AD SLOT #5                                    -->
+                        <!-- ================================================= -->
 
                         <!-- Danger zone -->
                         <div
@@ -2025,9 +2137,37 @@
                         connectSSE();
                         handlePaymentQuery();
                         startLiveWithdrawals();
+                        initAds();
                     } catch (e) {
                         $("#loginView").classList.remove("hide");
                     }
+                }
+
+                // =============================================================
+                // MONETAG AD MOUNT
+                // The global tag.min.js in <head> handles most zones, but some
+                // "Banner" and "Native" zones want per-slot initialization.
+                // This just ensures each slot has a unique id so Monetag can
+                // find it, and reports it to console for debugging.
+                // =============================================================
+                function initAds() {
+                    const slots = [
+                        "ad-slot-top",
+                        "ad-slot-native-overview",
+                        "ad-slot-referrals-bottom",
+                        "ad-slot-wallet-bottom",
+                        "ad-slot-push-profile",
+                    ];
+                    slots.forEach((id) => {
+                        const el = document.getElementById(id);
+                        if (!el) return;
+                        console.log(
+                            "[monetag] slot ready:",
+                            id,
+                            "zone",
+                            el.dataset.zone,
+                        );
+                    });
                 }
 
                 function handlePaymentQuery() {
