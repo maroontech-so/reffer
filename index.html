@@ -78,9 +78,16 @@
             }
             .apple-input {
                 background: #fff;
+                color: #1d1d1f; /* ← fixes white-on-white text */
+                caret-color: #0071e3;
                 border: 1px solid #d2d2d7;
                 border-radius: 12px;
                 transition: all 0.2s ease;
+                color-scheme: light; /* prevents OS dark mode from flipping input text */
+            }
+            .apple-input::placeholder {
+                color: #86868b;
+                opacity: 1; /* Firefox lowers opacity by default */
             }
             .apple-input:focus {
                 outline: none;

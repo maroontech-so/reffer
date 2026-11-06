@@ -4,7 +4,8 @@
  * - Turso (libSQL) async mirror with:
  *     • write-through sync queue (every INSERT/UPDATE/DELETE)
  *     • boot-time schema mirror (Turso is kept in lockstep with local schema)
- *     • boot-time pull when local DB is empty/missing
+ *     • PRODUCTION: Turso is authoritative — pull on every boot
+ *     • DEVELOPMENT: local is authoritative — pull only when local empty
  *     • boot-time push backfill (local rows missing on Turso)
  *     • graceful flush on shutdown
  *     • cascade deletes that propagate to Turso
@@ -157,13 +158,10 @@ function makeTursoClient() {
  * URL. In that case, we replay SCHEMA_SQL against Turso so subsequent
  * INSERT/UPDATE/DELETE calls succeed. Every statement is CREATE ... IF NOT
  * EXISTS, so this is safe to run on every boot.
- *
- * Returns { created, statements, errors }.
  */
 async function ensureTursoSchema() {
   if (!tursoClient) return { created: false, reason: "no_turso_client" };
 
-  // Fast path — already has the users table?
   try {
     const r = await tursoClient.execute(
       "SELECT name FROM sqlite_master WHERE type='table' AND name='users'",
@@ -176,7 +174,6 @@ async function ensureTursoSchema() {
       return { created: false, reason: "schema_exists" };
     }
   } catch (e) {
-    // If sqlite_master itself fails, fall through to create
     console.log(
       "[turso] schema check failed (proceeding to create):",
       String(e.message || "").slice(0, 200),
@@ -185,8 +182,6 @@ async function ensureTursoSchema() {
 
   console.log("[turso] creating schema on Turso…");
 
-  // Split SCHEMA_SQL on statement boundaries. Our schema has no embedded
-  // semicolons inside string literals or comments, so this is safe.
   const statements = SCHEMA_SQL.split(";")
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
@@ -240,16 +235,6 @@ function scheduleFlush() {
   });
 }
 
-/**
- * Drain the write queue to Turso.
- *
- * Splicing immediately before send prevents double-send if flushNow() runs
- * concurrently. Error handling:
- *   • "no such table"  → ensure schema once, requeue, back off
- *   • connection error → requeue, back off
- *   • other SQL error  → isolate one-by-one to prevent one bad row
- *                        from silently discarding the rest of the batch
- */
 async function flushQueue() {
   if (flushing || !tursoClient || syncQueue.length === 0) return;
   flushing = true;
@@ -292,9 +277,6 @@ async function flushQueue() {
           return;
         }
 
-        // Other failure — isolate per-row so one bad statement doesn't
-        // drop the other 499. If any row hits "no such table", requeue
-        // the remainder and stop.
         console.error("[turso] batch error, isolating:", msg.slice(0, 200));
         for (let i = 0; i < batch.length; i++) {
           const item = batch[i];
@@ -325,10 +307,6 @@ async function flushQueue() {
   }
 }
 
-/**
- * Drain the queue synchronously-ish, bounded by `timeoutMs`.
- * Used by graceful shutdown and by deleteUser() to confirm propagation.
- */
 async function flushNow(timeoutMs = 5000) {
   if (!tursoClient) return { flushed: 0, remaining: 0 };
   const deadline = Date.now() + timeoutMs;
@@ -371,9 +349,6 @@ async function flushNow(timeoutMs = 5000) {
 /**
  * Pull every row from Turso into the local SQLite DB.
  * Uses INSERT OR REPLACE, so Turso wins on conflict.
- *
- * FK checks are disabled during the insert pass (self-referencing users,
- * inter-table dependency order, and unknown ordering from Turso).
  */
 async function pullFromTurso() {
   if (!tursoClient) return { restored: false, reason: "no_turso_client" };
@@ -438,23 +413,9 @@ async function pullFromTurso() {
 // ============================================================================
 // TURSO PUSH (local → Turso backfill)
 // ============================================================================
-/**
- * Backfill local rows to Turso with INSERT OR IGNORE.
- *
- * - Safe when Turso already has a row (no-op).
- * - Fixes the "enable Turso on an existing instance" case.
- * - Rows are ordered parent-first for FK-safe insertion on Turso.
- * - Users are ordered by created_at so referrers land before referees.
- *
- * If Turso returns "no such table" (schema missing despite boot-time create),
- * we ensure the schema once and retry the chunk. This handles a fresh Turso
- * project that only gets provisioned after client init.
- */
 async function pushLocalToTurso() {
   if (!tursoClient) return { pushed: 0, errors: 0 };
 
-  // Defensive: schema should already be created during syncOnBoot, but if
-  // push is invoked directly (admin "Push local → Turso"), guarantee it.
   try {
     await ensureTursoSchema();
   } catch (e) {
@@ -493,7 +454,6 @@ async function pushLocalToTurso() {
       } catch (e) {
         const msg = String(e.message || "");
 
-        // Schema missing on Turso — ensure once, retry chunk, then move on.
         if (/no such table/i.test(msg)) {
           console.error(
             `[turso] push ${t}: table missing on Turso — ensuring schema and retrying`,
@@ -512,8 +472,6 @@ async function pushLocalToTurso() {
           continue;
         }
 
-        // Other failure — isolate per-row so one bad statement doesn't
-        // drop the entire chunk.
         for (const s of stmts) {
           try {
             await tursoClient.execute(s);
@@ -535,22 +493,25 @@ async function pushLocalToTurso() {
 }
 
 // ============================================================================
-// BOOT SYNC
+// BOOT SYNC  ← ← ← PRODUCTION-AWARE VERSION
 // ============================================================================
 /**
  * Bring local and Turso into agreement at boot.
  *
  *   1. Ensure Turso has the schema (create it if missing)
- *   2. Decide whether to pull (local empty) or skip (local authoritative)
- *   3. Always backfill local → Turso
+ *   2. Decide pull strategy based on environment:
+ *        • PRODUCTION  → Turso is authoritative, ALWAYS pull (if Turso has users)
+ *        • DEVELOPMENT → local is authoritative, pull only when local empty
+ *   3. Always backfill local → Turso (INSERT OR IGNORE, safe no-op if present)
  *
- * Turso is treated as a mirror of local: local is authoritative, Turso
- * is kept in lockstep.
+ * The "always pull on prod" rule fixes the classic bug where a redeploy on a
+ * host with a persistent volume carries over a stale local DB and skips the
+ * pull — leaving the hosted app missing users that exist on Turso.
  */
 async function syncOnBoot() {
   if (!tursoClient) return { skipped: true, reason: "turso_not_configured" };
 
-  // 1. Schema first. If Turso is completely empty, this creates the tables.
+  // 1. Schema first.
   let schema = { created: false };
   try {
     schema = await ensureTursoSchema();
@@ -572,32 +533,61 @@ async function syncOnBoot() {
     localUsers = 0;
   }
 
+  let tursoUsers = 0;
+  try {
+    const r = await tursoClient.execute("SELECT COUNT(*) AS c FROM users");
+    tursoUsers = Number(r.rows[0]?.c || 0);
+  } catch (e) {
+    tursoUsers = 0;
+  }
+
+  const isProduction = CONFIG.nodeEnv === "production";
+
   console.log(
     `[turso] boot: db file ${dbFileExisted ? "exists" : "missing"}, ` +
-      `${localUsers} local user(s)`,
+      `local=${localUsers}, turso=${tursoUsers}, env=${CONFIG.nodeEnv}`,
   );
 
-  // 2. Pull only when local is empty (Turso is the source of truth).
+  // 2. Pull strategy
   let pulled = { restored: false };
-  if (localUsers === 0) {
+  let pushed = { pushed: 0, errors: 0 };
+
+  if (isProduction && tursoUsers > 0) {
+    // PRODUCTION: Turso is the source of truth. Always pull.
     try {
       pulled = await pullFromTurso();
       console.log(
-        `[turso] boot pull: restored=${pulled.restored}, rows=${pulled.rows || 0}, reason=${pulled.reason || "-"}`,
+        `[turso] prod pull: restored=${pulled.restored}, rows=${pulled.rows || 0}, ` +
+          `reason=${pulled.reason || "-"}`,
       );
     } catch (e) {
-      console.error("[turso] boot pull failed:", e.message);
-      lastSyncError = "boot_pull: " + e.message;
+      console.error("[turso] prod pull failed:", e.message);
+      lastSyncError = "prod_pull: " + e.message;
       lastSyncErrorAt = new Date().toISOString();
       return { error: "pull_failed: " + e.message, schema };
     }
+  } else if (!isProduction && localUsers === 0) {
+    // DEVELOPMENT: local is authoritative; pull only when local empty.
+    try {
+      pulled = await pullFromTurso();
+      console.log(
+        `[turso] dev pull: restored=${pulled.restored}, rows=${pulled.rows || 0}, ` +
+          `reason=${pulled.reason || "-"}`,
+      );
+    } catch (e) {
+      console.error("[turso] dev pull failed:", e.message);
+      lastSyncError = "dev_pull: " + e.message;
+      lastSyncErrorAt = new Date().toISOString();
+    }
   } else {
-    console.log(`[turso] boot: local has ${localUsers} user(s), skipping pull`);
-    pulled = { restored: false, reason: "local_has_data" };
+    const reason = isProduction ? "prod_but_turso_empty" : "local_has_data";
+    console.log(
+      `[turso] boot: skipping pull (env=${CONFIG.nodeEnv}, local=${localUsers}, turso=${tursoUsers}, reason=${reason})`,
+    );
+    pulled = { restored: false, reason };
   }
 
-  // 3. Always backfill local → Turso.
-  let pushed = { pushed: 0, errors: 0 };
+  // 3. Always backfill local → Turso. INSERT OR IGNORE so existing rows win.
   try {
     pushed = await pushLocalToTurso();
   } catch (e) {
@@ -605,7 +595,7 @@ async function syncOnBoot() {
     pushed = { pushed: 0, errors: 0, error: e.message };
   }
 
-  return { schema, pulled, pushed };
+  return { schema, pulled, pushed, localUsers, tursoUsers };
 }
 
 function syncStatus() {
@@ -623,6 +613,7 @@ function syncStatus() {
     lastError: lastSyncError,
     lastErrorAt: lastSyncErrorAt,
     timestamp: nowIso(),
+    nodeEnv: CONFIG.nodeEnv,
   };
 }
 
@@ -1389,21 +1380,6 @@ function authenticateUser(phoneOrEmail, password) {
 // ============================================================================
 // DELETE USER (cascading + Turso propagation)
 // ============================================================================
-/**
- * Permanently delete a user and everything tied to them.
- *
- * Guards:
- *   • cannot delete the last administrator
- *   • cannot delete while the user has pending withdrawals
- *   • cannot delete while the user has an available (withdrawable) balance
- *     or payouts still in flight
- *
- * Pending (not-yet-eligible) commissions are forfeited with a warning.
- *
- * Every DELETE is emitted through the sync queue, so Turso receives the same
- * cascade. After the local commit, we await flushNow() (bounded) so the
- * caller can confirm the delete actually reached Turso.
- */
 async function deleteUser(userId, actorId, actorRole, ip, ua) {
   const database = getDb();
   const user = findUserById(userId);
@@ -2883,6 +2859,34 @@ function listWithdrawals(userId, page, pageSize) {
 }
 
 // ============================================================================
+// RECENT WITHDRAWALS (live feed for member dashboard)
+// ============================================================================
+function recentWithdrawals(limit = 15) {
+  const database = getDb();
+  const lim = Math.min(Math.max(parseInt(limit || 15, 10), 1), 50);
+  const rows = database
+    .prepare(
+      `SELECT w.id, w.user_id, w.amount_kobo, w.status,
+              w.paid_at, w.processed_at, w.updated_at, w.created_at,
+              u.full_name
+       FROM withdrawals w
+       JOIN users u ON u.id = w.user_id
+       WHERE w.status IN ('paid', 'processing', 'queued')
+       ORDER BY COALESCE(w.paid_at, w.processed_at, w.updated_at, w.created_at) DESC
+       LIMIT ?`,
+    )
+    .all(lim);
+  return rows.map((r) => ({
+    id: r.id.slice(0, 8).toUpperCase(),
+    userId: r.user_id,
+    name: maskName(r.full_name),
+    amountKobo: r.amount_kobo,
+    status: r.status,
+    at: r.paid_at || r.processed_at || r.updated_at || r.created_at,
+  }));
+}
+
+// ============================================================================
 // RECONCILIATION
 // ============================================================================
 async function runReconciliation(actorId, ip, ua) {
@@ -3391,41 +3395,6 @@ async function bootstrap() {
   return { mode: "synced", sync };
 }
 
-
-// ============================================================================
-// LIVE WITHDRAWALS FEED (for member dashboard "Live withdrawals" card)
-// ============================================================================
-/**
- * Recent withdrawals across all users, masked for public display.
- * Only paid / processing / queued — pending (requested) rows are hidden
- * to avoid showing withdrawals that may still fail.
- */
-function recentWithdrawals(limit = 15) {
-  const database = getDb();
-  const lim = Math.min(Math.max(parseInt(limit || 15, 10), 1), 50);
-  const rows = database
-    .prepare(
-      `SELECT w.id, w.user_id, w.amount_kobo, w.status,
-              w.paid_at, w.processed_at, w.updated_at, w.created_at,
-              u.full_name
-       FROM withdrawals w
-       JOIN users u ON u.id = w.user_id
-       WHERE w.status IN ('paid', 'processing', 'queued')
-       ORDER BY COALESCE(w.paid_at, w.processed_at, w.updated_at, w.created_at) DESC
-       LIMIT ?`,
-    )
-    .all(lim);
-  return rows.map((r) => ({
-    id: r.id.slice(0, 8).toUpperCase(),
-    userId: r.user_id,
-    name: maskName(r.full_name),
-    amountKobo: r.amount_kobo,
-    status: r.status,
-    at: r.paid_at || r.processed_at || r.updated_at || r.created_at,
-  }));
-}
-
-
 // ============================================================================
 // EXPORTS
 // ============================================================================
@@ -3478,7 +3447,7 @@ module.exports = {
   adminListSettings,
   adminUpdateSetting,
   adminListReconciliation,
-  recentWithdrawals, 
+  recentWithdrawals,
   getSetting,
   getSettingInt,
   getSettingBool,
@@ -3487,7 +3456,6 @@ module.exports = {
   notify,
   registerSSENotifier,
   pushSSE,
-  // Turso + delete + schema
   deleteUser,
   pullFromTurso,
   pushLocalToTurso,
