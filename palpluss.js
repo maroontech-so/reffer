@@ -1,11 +1,3 @@
-/**
- * palpluss.js — PalPluss payment provider
- * Handles both M-Pesa STK Push (collections) and B2C payouts (disbursements).
- *
- * Docs: https://docs.palpluss.com
- * Base URL: https://api.palpluss.com/v1
- * Auth: HTTP Basic — API key as username, empty password.
- */
 "use strict";
 
 const axios = require("axios");
@@ -59,18 +51,6 @@ async function request(method, path, body, extraHeaders = {}) {
   return payload.data;
 }
 
-/**
- * Initiate an M-Pesa STK Push.
- * Endpoint: POST /payments/stk
- *
- * @param {Object} opts
- * @param {number} opts.amountKes        Amount in KES (e.g. 100)
- * @param {string} opts.phone            "254712345678" (no +)
- * @param {string} opts.callbackUrl      Publicly reachable HTTPS webhook URL
- * @param {string} opts.accountReference ≤ 12 characters, shown on M-Pesa statement
- * @param {string} [opts.description]    ≤ 13 characters, shown on PIN prompt
- * @param {string} [opts.channelId]      Optional PalPluss payment channel ID
- */
 async function initiateStkPush({
   amountKes,
   phone,
@@ -91,18 +71,6 @@ async function initiateStkPush({
   return request("POST", "/payments/stk", body);
 }
 
-/**
- * Initiate a B2C payout to an M-Pesa number.
- * Endpoint: POST /b2c/payouts
- *
- * @param {Object} opts
- * @param {number} opts.amountKes        Amount in KES (minimum KES 10)
- * @param {string} opts.phone            "254712345678"
- * @param {string} opts.reference        Your internal withdrawal reference
- * @param {string} [opts.description]    Human-readable description
- * @param {string} opts.callbackUrl      Webhook URL for B2C status
- * @param {string} [opts.idempotencyKey] Sent as Idempotency-Key header
- */
 async function initiateB2CPayout({
   amountKes,
   phone,
@@ -125,13 +93,6 @@ async function initiateB2CPayout({
   return request("POST", "/b2c/payouts", body, headers);
 }
 
-/**
- * Fetch a PalPluss transaction by ID.
- * Endpoint: GET /transactions/{id}
- *
- * Normalises both camelCase and snake_case response fields so callers
- * can safely read .transactionFee / .mpesaReceipt / .resultDesc.
- */
 async function getTransaction(transactionId) {
   const tx = await request(
     "GET",
@@ -149,8 +110,23 @@ async function getTransaction(transactionId) {
   };
 }
 
+// ---- Retryable B2C error classifier -------------------------------------
+// These errors mean "B2C wallet has no float" — the payout will succeed
+// after the admin tops up. Everything else (invalid phone, KYC missing,
+// channel not configured) is terminal and must NOT be queued.
+const RETRYABLE_B2C_CODES = new Set([
+  "INSUFFICIENT_FUNDS",
+  "WALLET_INACTIVE",
+  "BALANCE_INSUFFICIENT",
+]);
+
+function isRetryableB2CError(err) {
+  return Boolean(err && err.code && RETRYABLE_B2C_CODES.has(err.code));
+}
+
 module.exports = {
   initiateStkPush,
   initiateB2CPayout,
   getTransaction,
+  isRetryableB2CError,
 };

@@ -10,6 +10,7 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
+const crypto = require("crypto");
 const path = require("path");
 
 const backend = require("./backend");
@@ -43,8 +44,15 @@ app.use(
   }),
 );
 
-app.use(cors({ origin: true, credentials: true }));
-app.use(express.json({ limit: "2mb" }));
+app.use(cors({ origin: backend.CONFIG.appUrl, credentials: true }));
+app.use(
+  express.json({
+    limit: "2mb",
+    verify: (req, res, buf) => {
+      req.rawBody = buf;
+    },
+  }),
+);
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
 app.use(morgan("combined"));
@@ -139,6 +147,47 @@ function safeUser(user) {
 }
 
 // ============================================================================
+// WEBHOOK SIGNATURE VERIFICATION
+// ============================================================================
+function verifyPalPlussSignature(req) {
+  const secret = process.env.PALPLUSS_WEBHOOK_SECRET;
+  if (!secret) {
+    console.warn(
+      "[webhook] PALPLUSS_WEBHOOK_SECRET not configured — accepting unverified webhook",
+    );
+    return { ok: true, signatureValid: false };
+  }
+
+  const sig = req.get("x-palpluss-signature") || req.get("x-signature");
+  if (!sig) {
+    return { ok: false, status: 401, error: "Missing webhook signature" };
+  }
+
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(req.rawBody || Buffer.from(""))
+    .digest("hex");
+  const provided = sig.startsWith("sha256=") ? sig.slice(7) : sig;
+
+  let valid = false;
+  try {
+    valid =
+      provided.length === expected.length &&
+      crypto.timingSafeEqual(
+        Buffer.from(provided, "hex"),
+        Buffer.from(expected, "hex"),
+      );
+  } catch (e) {
+    valid = false;
+  }
+
+  if (!valid) {
+    return { ok: false, status: 401, error: "Invalid webhook signature" };
+  }
+  return { ok: true, signatureValid: true };
+}
+
+// ============================================================================
 // STATIC
 // ============================================================================
 const PUBLIC_DIR = __dirname;
@@ -155,6 +204,7 @@ app.get("/api/health", (req, res) =>
     ok: true,
     service: "referal-kenya",
     time: new Date().toISOString(),
+    turso: backend.syncStatus(),
   }),
 );
 
@@ -359,16 +409,23 @@ app.get("/api/member/withdrawals", requireAuth, (req, res) => {
   res.json(backend.listWithdrawals(req.user.id, page, pageSize));
 });
 
-app.post("/api/member/withdrawals", requireAuth, (req, res) => {
-  const { amountKobo } = req.body || {};
-  const result = backend.requestWithdrawal(
-    req.user.id,
-    amountKobo,
-    req.ip,
-    req.get("user-agent"),
-  );
-  if (result.error) return res.status(400).json({ error: result.error });
-  res.status(201).json({ ok: true, withdrawalId: result.withdrawalId });
+app.post("/api/member/withdrawals", requireAuth, async (req, res) => {
+  try {
+    const { amountKobo } = req.body || {};
+    const result = await backend.requestWithdrawal(
+      req.user.id,
+      amountKobo,
+      req.ip,
+      req.get("user-agent"),
+    );
+    if (!result.withdrawalId && result.error) {
+      return res.status(400).json({ error: result.error });
+    }
+    res.status(201).json({ ok: true, ...result });
+  } catch (e) {
+    console.error("[member/withdrawals]", e);
+    res.status(500).json({ error: "Withdrawal failed" });
+  }
 });
 
 app.get("/api/member/notifications", requireAuth, (req, res) => {
@@ -393,6 +450,19 @@ app.post("/api/member/notifications/read", requireAuth, (req, res) => {
     .run(req.user.id);
   res.json({ ok: true });
 });
+
+// ----------------------------------------------------------------------------
+// Member: recent withdrawals (masked) for the live activity ticker
+// ----------------------------------------------------------------------------
+app.get("/api/member/recent-withdrawals", requireAuth, (req, res) => {
+  try {
+    res.json({ items: backend.recentWithdrawals(15) });
+  } catch (e) {
+    console.error("[member/recent-withdrawals]", e);
+    res.status(500).json({ error: "Failed to load recent withdrawals" });
+  }
+});
+
 
 app.post("/api/member/profile", requireAuth, (req, res) => {
   const { fullName, email, payoutPhone } = req.body || {};
@@ -440,6 +510,31 @@ app.post("/api/member/profile", requireAuth, (req, res) => {
   }
 });
 
+// ----------------------------------------------------------------------------
+// Member: delete own account (cascades to Turso)
+// ----------------------------------------------------------------------------
+app.delete("/api/member/account", requireAuth, async (req, res) => {
+  try {
+    const result = await backend.deleteUser(
+      req.user.id,
+      req.user.id,
+      "member",
+      req.ip,
+      req.get("user-agent"),
+    );
+    if (result.error) return res.status(400).json({ error: result.error });
+    res.clearCookie("token");
+    res.json({
+      ok: true,
+      forfeitedPendingKobo: result.forfeitedPendingKobo || 0,
+      synced: result.synced,
+    });
+  } catch (e) {
+    console.error("[member/account delete]", e);
+    res.status(500).json({ error: "Delete failed" });
+  }
+});
+
 // ============================================================================
 // PAYMENTS — PalPluss
 // ============================================================================
@@ -460,28 +555,26 @@ app.post("/api/payments/charge", requireAuth, async (req, res) => {
   }
 });
 
-/**
- * Webhook endpoint for PalPluss.
- * Both STK Push and B2C payout results arrive here.
- * Return 2xx immediately; processing is synchronous but lightweight.
- */
 app.post("/api/webhooks/palpluss", (req, res) => {
   try {
+    const sig = verifyPalPlussSignature(req);
+    if (!sig.ok) {
+      console.warn("[webhook] rejected:", sig.error);
+      return res.status(sig.status).json({ error: sig.error });
+    }
     const result = backend.handlePalPlussWebhook(
       req.body,
       req.ip,
       req.get("user-agent"),
+      { signatureValid: sig.signatureValid },
     );
     res.status(200).json({ ok: true, ...result });
   } catch (e) {
     console.error("[palpluss webhook]", e);
-    res.status(200).json({ ok: true }); // PalPluss retries on non-2xx; still return 200 to avoid spam
+    res.status(200).json({ ok: true });
   }
 });
 
-/**
- * Poll a payment by its PalPluss transaction ID (frontend polling).
- */
 app.get("/api/payments/verify/:reference", requireAuth, async (req, res) => {
   const ref = req.params.reference;
   const database = backend.getDb();
@@ -498,7 +591,6 @@ app.get("/api/payments/verify/:reference", requireAuth, async (req, res) => {
   if (payment.status === "failed" || payment.status === "abandoned")
     return res.json({ status: payment.status, error: payment.failure_reason });
 
-  // Optionally query PalPluss for a fresher status (webhook may be delayed)
   try {
     const tx = await palpluss.getTransaction(ref);
     if (tx.status === "SUCCESS") {
@@ -532,7 +624,7 @@ app.get("/api/payments/verify/:reference", requireAuth, async (req, res) => {
       return res.json({ status: "failed", error: tx.resultDesc || tx.status });
     }
   } catch (e) {
-    // Ignore — return pending so the frontend keeps polling
+    // Ignore — keep polling
   }
 
   return res.json({ status: "pending", pending: true });
@@ -565,6 +657,32 @@ app.post("/api/admin/users/:id/status", requireAdmin, (req, res) => {
   if (result.error) return res.status(400).json({ error: result.error });
   res.json({ ok: true });
 });
+
+// ----------------------------------------------------------------------------
+// Admin: delete user (cascades to Turso)
+// ----------------------------------------------------------------------------
+app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
+  try {
+    const result = await backend.deleteUser(
+      req.params.id,
+      req.user.id,
+      "admin",
+      req.ip,
+      req.get("user-agent"),
+    );
+    if (result.error) return res.status(400).json({ error: result.error });
+    res.json({
+      ok: true,
+      deletedUserId: result.deletedUserId,
+      forfeitedPendingKobo: result.forfeitedPendingKobo || 0,
+      synced: result.synced,
+    });
+  } catch (e) {
+    console.error("[admin/user delete]", e);
+    res.status(500).json({ error: "Delete failed" });
+  }
+});
+
 app.get("/api/admin/payments", requireAdmin, (req, res) =>
   res.json(backend.adminListPayments(req.query)),
 );
@@ -575,55 +693,77 @@ app.get("/api/admin/withdrawals", requireAdmin, (req, res) =>
   res.json(backend.adminListWithdrawals(req.query)),
 );
 
-app.post("/api/admin/withdrawals/process", requireAdmin, async (req, res) => {
+app.get("/api/admin/withdrawals/queue", requireAdmin, (req, res) => {
   try {
-    res.json(
-      await backend.processPayouts(req.user.id, req.ip, req.get("user-agent")),
+    res.json(backend.getQueuedShortfall());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+async function handleDisburse(req, res) {
+  try {
+    const summary = await backend.disburseQueued(
+      req.user.id,
+      req.ip,
+      req.get("user-agent"),
     );
+    res.json(summary);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
-});
+}
 
-app.post("/api/admin/withdrawals/:id/reconcile", requireAdmin, async (req, res) => {
-  try {
-    const database = backend.getDb();
-    const w = database
-      .prepare("SELECT * FROM withdrawals WHERE id = ?")
-      .get(req.params.id);
-    if (!w) return res.status(404).json({ error: "Withdrawal not found" });
-    if (!w.provider_transfer_code)
-      return res
-        .status(400)
-        .json({ error: "No provider transfer code to reconcile" });
+app.post("/api/admin/withdrawals/disburse", requireAdmin, handleDisburse);
+app.post("/api/admin/withdrawals/process", requireAdmin, handleDisburse);
 
-    const tx = await palpluss.getTransaction(w.provider_transfer_code);
-    if (tx.status === "SUCCESS") {
-      backend.finalizePayoutSuccess(
-        w,
-        tx,
-        req.user.id,
-        req.ip,
-        req.get("user-agent"),
-      );
-      return res.json({ ok: true, status: "paid" });
+app.post(
+  "/api/admin/withdrawals/:id/reconcile",
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const database = backend.getDb();
+      const w = database
+        .prepare("SELECT * FROM withdrawals WHERE id = ?")
+        .get(req.params.id);
+      if (!w) return res.status(404).json({ error: "Withdrawal not found" });
+      if (!w.provider_transfer_code)
+        return res
+          .status(400)
+          .json({ error: "No provider transfer code to reconcile" });
+
+      const tx = await palpluss.getTransaction(w.provider_transfer_code);
+      if (tx.status === "SUCCESS") {
+        backend.finalizePayoutSuccess(
+          w,
+          tx,
+          req.user.id,
+          req.ip,
+          req.get("user-agent"),
+        );
+        return res.json({ ok: true, status: "paid" });
+      }
+      if (["FAILED", "EXPIRED", "CANCELLED"].includes(tx.status)) {
+        backend.finalizePayoutFailure(
+          w,
+          tx.resultDesc || tx.status,
+          tx,
+          req.user.id,
+          req.ip,
+          req.get("user-agent"),
+        );
+        return res.json({ ok: true, status: "failed" });
+      }
+      return res.json({
+        ok: true,
+        status: "pending",
+        providerStatus: tx.status,
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
     }
-    if (["FAILED", "EXPIRED", "CANCELLED"].includes(tx.status)) {
-      backend.finalizePayoutFailure(
-        w,
-        tx.resultDesc || tx.status,
-        tx,
-        req.user.id,
-        req.ip,
-        req.get("user-agent"),
-      );
-      return res.json({ ok: true, status: "failed" });
-    }
-    return res.json({ ok: true, status: "pending", providerStatus: tx.status });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+  },
+);
 
 app.get("/api/admin/audit", requireAdmin, (req, res) =>
   res.json(backend.adminListAudit(req.query)),
@@ -662,6 +802,40 @@ app.post("/api/admin/reconciliation/run", requireAdmin, async (req, res) => {
 });
 
 // ============================================================================
+// ADMIN: TURSO SYNC CONTROL
+// ============================================================================
+app.get("/api/admin/sync/status", requireAdmin, (req, res) => {
+  res.json(backend.syncStatus());
+});
+
+app.post("/api/admin/sync/flush", requireAdmin, async (req, res) => {
+  try {
+    const r = await backend.flushNow(15000);
+    res.json(r);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/admin/sync/pull", requireAdmin, async (req, res) => {
+  try {
+    const r = await backend.pullFromTurso();
+    res.json(r);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/admin/sync/push", requireAdmin, async (req, res) => {
+  try {
+    const r = await backend.pushLocalToTurso();
+    res.json(r);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ============================================================================
 // FALLBACKS
 // ============================================================================
 app.get("/", (req, res) => res.sendFile(path.join(PUBLIC_DIR, "index.html")));
@@ -682,11 +856,44 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================================================
-// BOOT
+// BOOT + GRACEFUL SHUTDOWN
 // ============================================================================
+let httpServer = null;
+let shuttingDown = false;
+
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`\n[shutdown] ${signal} received — flushing Turso queue…`);
+
+  try {
+    if (httpServer) {
+      await new Promise((resolve) => {
+        httpServer.close(() => resolve());
+        // Don't hang on keep-alive connections forever
+        setTimeout(resolve, 3000);
+      });
+    }
+  } catch (e) {
+    console.error("[shutdown] server close error:", e.message);
+  }
+
+  try {
+    const r = await backend.flushNow(5000);
+    console.log(
+      `[shutdown] Turso flush: ${r.flushed} written, ${r.remaining} remaining`,
+    );
+  } catch (e) {
+    console.error("[shutdown] Turso flush failed:", e.message);
+  }
+
+  console.log("[shutdown] done");
+  process.exit(0);
+}
+
 async function boot() {
   await backend.bootstrap();
-  app.listen(PORT, () => {
+  httpServer = app.listen(PORT, () => {
     console.log(`\n✅ Referal Kenya running at http://localhost:${PORT}`);
     console.log(`   Environment: ${backend.CONFIG.nodeEnv}`);
     console.log(`   PalPluss: ${Boolean(process.env.PALPLUSS_API_KEY)}`);
@@ -696,6 +903,9 @@ async function boot() {
     );
   });
 }
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
 
 if (require.main === module) {
   boot().catch((e) => {

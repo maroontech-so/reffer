@@ -73,19 +73,44 @@
                 color: #0071e3;
                 background: rgba(0, 113, 227, 0.08);
             }
+
+            /* ---- Bottom nav ---- */
             .bottom-nav-item {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
                 flex: 1;
-                padding: 8px 0;
+                padding: 6px 0 8px;
+                background: transparent;
+                border: 0;
+                cursor: pointer;
                 color: #86868b;
-                transition: color 0.2s;
+                position: relative;
+                transition: color 0.15s;
             }
-            .bottom-nav-item.active {
+            .bottom-nav-item .nav-icon,
+            .bottom-nav-item .nav-label {
+                color: #86868b;
+                transition: color 0.15s;
+            }
+            .bottom-nav-item.active .nav-icon,
+            .bottom-nav-item.active .nav-label {
                 color: #0071e3;
             }
+            .bottom-nav-item.active .nav-label {
+                font-weight: 700;
+            }
+            .bottom-nav-item.active::after {
+                content: "";
+                position: absolute;
+                bottom: 2px;
+                width: 5px;
+                height: 5px;
+                border-radius: 50%;
+                background: #0071e3;
+            }
+
             @keyframes spin {
                 to {
                     transform: rotate(360deg);
@@ -97,19 +122,181 @@
             @keyframes toast-in {
                 from {
                     opacity: 0;
-                    transform: translateY(-10px);
+                    transform: translateY(-12px) scale(0.98);
                 }
                 to {
                     opacity: 1;
-                    transform: translateY(0);
+                    transform: translateY(0) scale(1);
                 }
             }
             .toast {
-                animation: toast-in 0.25s ease-out;
+                animation: toast-in 0.22s ease-out;
+                box-shadow:
+                    0 8px 32px rgba(0, 0, 0, 0.16),
+                    0 2px 8px rgba(0, 0, 0, 0.08);
+            }
+
+            /* ---- Hero (solid blue) ---- */
+            /* ---- Hero (rich black with texture) ---- */
+            .apple-card.hero-gradient {
+                background:
+                    /* soft white glow top-right */
+                    radial-gradient(
+                        circle at 92% -10%,
+                        rgba(255, 255, 255, 0.14),
+                        transparent 45%
+                    ),
+                    /* cool blue tint bottom-left */
+                    radial-gradient(
+                            circle at 0% 110%,
+                            rgba(0, 113, 227, 0.22),
+                            transparent 55%
+                        ),
+                    /* subtle green sparkle mid-right */
+                    radial-gradient(
+                            circle at 85% 70%,
+                            rgba(52, 199, 89, 0.1),
+                            transparent 40%
+                        ),
+                    /* fine diagonal grid texture */
+                    repeating-linear-gradient(
+                            135deg,
+                            rgba(255, 255, 255, 0.025) 0px,
+                            rgba(255, 255, 255, 0.025) 1px,
+                            transparent 1px,
+                            transparent 6px
+                        ),
+                    /* base black-to-charcoal gradient */
+                    linear-gradient(
+                            160deg,
+                            #0a0a0c 0%,
+                            #1a1a1f 55%,
+                            #0f0f12 100%
+                        );
+                box-shadow:
+                    0 20px 60px rgba(0, 0, 0, 0.45),
+                    0 4px 14px rgba(0, 0, 0, 0.25),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                color: #fff;
+            }
+            .hero-noise {
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                opacity: 0.35;
+                mix-blend-mode: overlay;
+                background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+                background-size: 180px 180px;
+                border-radius: inherit;
+            }
+
+            /* ---- Share buttons ---- */
+            .share-btn {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 12px 6px;
+                border-radius: 14px;
+                color: #fff;
+                font-size: 11px;
+                font-weight: 600;
+                gap: 6px;
+                transition:
+                    transform 0.15s,
+                    filter 0.15s;
+                text-decoration: none;
+                cursor: pointer;
+                border: 0;
+            }
+            .share-btn:hover {
+                transform: translateY(-2px);
+                filter: brightness(1.05);
+            }
+            .share-btn:active {
+                transform: translateY(0);
+            }
+            .share-btn svg {
+                width: 22px;
+                height: 22px;
+                flex-shrink: 0;
+            }
+
+            /* ---- Quick amount chips ---- */
+            .quick-amount-btn {
+                background: #f5f5f7;
+                border-radius: 999px;
+                padding: 6px 14px;
+                font-size: 13px;
+                font-weight: 500;
+                color: #1d1d1f;
+                transition: background 0.15s;
+                border: 0;
+                cursor: pointer;
+            }
+            .quick-amount-btn:hover {
+                background: #e5e7eb;
+            }
+
+            /* ---- Wallet donut ---- */
+            .wallet-donut {
+                width: 200px;
+                height: 200px;
+                border-radius: 50%;
+                background: conic-gradient(#e5e7eb 0% 100%);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background 0.4s ease;
+                flex-shrink: 0;
+            }
+            .wallet-donut-inner {
+                width: 140px;
+                height: 140px;
+                border-radius: 50%;
+                background: #fff;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.04);
+            }
+
+            /* ---- Activity icons ---- */
+            .activity-icon {
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+            }
+
+            /* ---- Profile avatar ---- */
+            .profile-avatar {
+                width: 84px;
+                height: 84px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 30px;
+                font-weight: 700;
+                color: #fff;
+                flex-shrink: 0;
+                box-shadow: 0 4px 20px rgba(0, 113, 227, 0.25);
+            }
+
+            /* ---- Withdraw modal states ---- */
+            .modal-amount {
+                font-size: 15px;
+                line-height: 1.4;
             }
         </style>
     </head>
-    <body class="min-h-screen pb-20 md:pb-0">
+    <body class="min-h-screen pb-24 md:pb-0">
         <!-- LOGIN VIEW -->
         <div
             id="loginView"
@@ -286,79 +473,126 @@
                         </button>
                     </div>
 
-                    <!-- OVERVIEW -->
+                    <!-- ============ OVERVIEW ============ -->
                     <div id="view-overview" class="space-y-6">
+                        <!-- Hero balance card (solid blue) -->
                         <div
-                            class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4"
+                            class="apple-card hero-gradient p-6 md:p-8 relative overflow-hidden"
                         >
-                            <div class="apple-card p-5">
+                            <div class="hero-noise"></div>
+                            <div class="relative">
                                 <div
-                                    class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1"
+                                    class="text-[11px] font-semibold text-white/70 uppercase tracking-wider mb-2"
                                 >
-                                    Available
+                                    Available balance
                                 </div>
                                 <div
-                                    id="statAvailable"
-                                    class="text-2xl md:text-3xl font-bold text-[#34c759]"
+                                    class="flex items-baseline gap-4 flex-wrap"
                                 >
-                                    KSh 0
-                                </div>
-                            </div>
-                            <div class="apple-card p-5">
-                                <div
-                                    class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1"
-                                >
-                                    Pending
-                                </div>
-                                <div
-                                    id="statPending"
-                                    class="text-2xl md:text-3xl font-bold text-[#ff9f0a]"
-                                >
-                                    KSh 0
-                                </div>
-                            </div>
-                            <div class="apple-card p-5">
-                                <div
-                                    class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1"
-                                >
-                                    Total Earned
+                                    <div
+                                        id="statAvailable"
+                                        class="text-4xl md:text-5xl font-bold tracking-tight text-white"
+                                    >
+                                        KSh 0
+                                    </div>
+                                    <div
+                                        class="text-sm text-white/85 flex items-center gap-1.5"
+                                    >
+                                        <span
+                                            class="w-2 h-2 rounded-full bg-white/70"
+                                        ></span>
+                                        <span id="statPending"
+                                            >KSh 0 pending</span
+                                        >
+                                    </div>
                                 </div>
                                 <div
-                                    id="statEarned"
-                                    class="text-2xl md:text-3xl font-bold text-black"
+                                    class="mt-6 grid grid-cols-3 gap-4 max-w-lg"
                                 >
-                                    KSh 0
+                                    <div>
+                                        <div
+                                            class="text-[10px] font-semibold text-white/70 uppercase tracking-wider"
+                                        >
+                                            Total earned
+                                        </div>
+                                        <div
+                                            id="statEarned"
+                                            class="text-base font-bold mt-0.5 text-white"
+                                        >
+                                            KSh 0
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div
+                                            class="text-[10px] font-semibold text-white/70 uppercase tracking-wider"
+                                        >
+                                            Withdrawn
+                                        </div>
+                                        <div
+                                            id="statWithdrawn"
+                                            class="text-base font-bold mt-0.5 text-white"
+                                        >
+                                            KSh 0
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div
+                                            class="text-[10px] font-semibold text-white/70 uppercase tracking-wider"
+                                        >
+                                            Paid referrals
+                                        </div>
+                                        <div
+                                            id="statReferrals"
+                                            class="text-base font-bold mt-0.5 text-white"
+                                        >
+                                            0
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="apple-card p-5">
-                                <div
-                                    class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1"
-                                >
-                                    Withdrawn
-                                </div>
-                                <div
-                                    id="statWithdrawn"
-                                    class="text-2xl md:text-3xl font-bold text-black"
-                                >
-                                    KSh 0
+                                <div class="mt-6 flex flex-wrap gap-3">
+                                    <button
+                                        id="heroWithdrawBtn"
+                                        class="bg-white text-[#0071e3] hover:bg-gray-100 px-6 py-2.5 rounded-full text-[14px] font-semibold transition-colors"
+                                    >
+                                        Withdraw
+                                    </button>
+                                    <button
+                                        id="heroReferralsBtn"
+                                        class="bg-white/10 hover:bg-white/20 text-white border border-white/30 px-6 py-2.5 rounded-full text-[14px] font-medium transition-colors"
+                                    >
+                                        View referrals
+                                    </button>
                                 </div>
                             </div>
                         </div>
 
-                        <div
-                            class="apple-card p-6 md:p-8 relative overflow-hidden"
-                        >
+                        <!-- Referral link + share -->
+                        <div class="apple-card p-6 md:p-8">
                             <div
-                                class="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-[#34c759] opacity-10 rounded-full blur-2xl"
-                            ></div>
-                            <h3 class="text-xl font-bold tracking-tight">
-                                Your referral link
-                            </h3>
-                            <p class="text-[15px] text-gray-500 mt-1 mb-5">
-                                Share this link. You earn KSh 50 for every
-                                person who joins and pays.
-                            </p>
-                            <div class="flex flex-col sm:flex-row gap-3">
+                                class="flex items-start justify-between gap-3 flex-wrap"
+                            >
+                                <div>
+                                    <h3
+                                        class="text-xl font-bold tracking-tight"
+                                    >
+                                        Your referral link
+                                    </h3>
+                                    <p class="text-[15px] text-gray-500 mt-1">
+                                        Share and earn
+                                        <span class="font-semibold text-black"
+                                            >KSh 50</span
+                                        >
+                                        for every friend who joins and pays.
+                                    </p>
+                                </div>
+                                <span
+                                    id="refCodePill"
+                                    class="hidden sm:inline-block text-[11px] font-mono font-bold text-[#0071e3] bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100"
+                                    >—</span
+                                >
+                            </div>
+
+                            <div class="flex flex-col sm:flex-row gap-3 mt-5">
                                 <input
                                     id="referralUrl"
                                     readonly
@@ -366,17 +600,136 @@
                                 />
                                 <button
                                     id="copyBtn"
-                                    class="apple-btn px-6 py-3.5 text-[15px] whitespace-nowrap"
+                                    class="apple-btn px-6 py-3.5 text-[15px] whitespace-nowrap inline-flex items-center justify-center gap-2"
                                 >
-                                    Copy
-                                </button>
-                                <button
-                                    id="shareWaBtn"
-                                    class="bg-[#34c759] hover:bg-[#2fb350] text-white rounded-full px-6 py-3.5 text-[15px] font-medium transition-colors whitespace-nowrap"
-                                >
-                                    Share
+                                    <svg
+                                        class="w-4 h-4"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3M9 12h6M9 16h6"
+                                        />
+                                    </svg>
+                                    <span id="copyBtnText">Copy link</span>
                                 </button>
                             </div>
+
+                            <div class="mt-4">
+                                <div
+                                    class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2"
+                                >
+                                    Share via
+                                </div>
+                                <div
+                                    class="grid grid-cols-3 sm:grid-cols-6 gap-2.5"
+                                >
+                                    <button
+                                        id="shareWa"
+                                        type="button"
+                                        class="share-btn bg-[#25D366]"
+                                    >
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            fill="currentColor"
+                                        >
+                                            <path
+                                                d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"
+                                            />
+                                        </svg>
+                                        WhatsApp
+                                    </button>
+                                    <button
+                                        id="shareX"
+                                        type="button"
+                                        class="share-btn bg-black"
+                                    >
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            fill="currentColor"
+                                        >
+                                            <path
+                                                d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+                                            />
+                                        </svg>
+                                        X
+                                    </button>
+                                    <button
+                                        id="shareFb"
+                                        type="button"
+                                        class="share-btn bg-[#1877F2]"
+                                    >
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            fill="currentColor"
+                                        >
+                                            <path
+                                                d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
+                                            />
+                                        </svg>
+                                        Facebook
+                                    </button>
+                                    <button
+                                        id="shareTg"
+                                        type="button"
+                                        class="share-btn bg-[#0088cc]"
+                                    >
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            fill="currentColor"
+                                        >
+                                            <path
+                                                d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"
+                                            />
+                                        </svg>
+                                        Telegram
+                                    </button>
+                                    <button
+                                        id="shareSms"
+                                        type="button"
+                                        class="share-btn bg-[#636366]"
+                                    >
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                            />
+                                        </svg>
+                                        SMS
+                                    </button>
+                                    <button
+                                        id="shareEmail"
+                                        type="button"
+                                        class="share-btn bg-[#ff3b30]"
+                                    >
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                                            />
+                                        </svg>
+                                        Email
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Referral stats -->
                             <div
                                 class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50 rounded-2xl p-4 border border-gray-100"
                             >
@@ -427,15 +780,73 @@
                                     </div>
                                     <div
                                         id="refCode"
-                                        class="text-lg font-bold mt-0.5 text-[#0071e3]"
+                                        class="text-lg font-bold mt-0.5 text-[#0071e3] font-mono"
                                     >
                                         —
                                     </div>
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Live withdrawals + Recent activity -->
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div class="apple-card overflow-hidden">
+                                <div
+                                    class="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between"
+                                >
+                                    <div class="flex items-center gap-2">
+                                        <span
+                                            class="w-2 h-2 rounded-full bg-[#34c759] animate-pulse"
+                                        ></span>
+                                        <h3 class="font-semibold text-[15px]">
+                                            Live withdrawals
+                                        </h3>
+                                    </div>
+                                    <span class="text-[11px] text-gray-500"
+                                        >updates live</span
+                                    >
+                                </div>
+                                <div
+                                    id="liveWithdrawals"
+                                    class="divide-y divide-gray-100"
+                                >
+                                    <div
+                                        class="p-6 text-sm text-gray-400 text-center"
+                                    >
+                                        Loading recent withdrawals…
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="apple-card overflow-hidden">
+                                <div
+                                    class="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between"
+                                >
+                                    <h3 class="font-semibold text-[15px]">
+                                        Recent activity
+                                    </h3>
+                                    <button
+                                        id="viewAllActivityBtn"
+                                        class="text-xs text-[#0071e3] font-medium hover:underline"
+                                    >
+                                        View all →
+                                    </button>
+                                </div>
+                                <div
+                                    id="overviewActivity"
+                                    class="divide-y divide-gray-100"
+                                >
+                                    <div
+                                        class="p-6 text-sm text-gray-400 text-center"
+                                    >
+                                        Loading…
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
+                    <!-- ============ REFERRALS ============ -->
                     <div id="view-referrals" class="hide space-y-4">
                         <div class="apple-card overflow-hidden">
                             <div
@@ -456,50 +867,190 @@
                         </div>
                     </div>
 
+                    <!-- ============ WALLET ============ -->
                     <div id="view-wallet" class="hide space-y-6">
+                        <!-- Wallet overview with donut -->
                         <div class="apple-card p-6 md:p-8">
-                            <h3 class="text-xl font-bold tracking-tight">
-                                Withdraw Funds
-                            </h3>
-                            <p class="text-[15px] text-gray-500 mt-1 mb-5">
-                                Transfer your available balance directly to
-                                M-Pesa. Minimum:
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-xl font-bold tracking-tight">
+                                    Wallet overview
+                                </h3>
                                 <span
-                                    id="minWithdrawLabel"
-                                    class="font-semibold text-black"
-                                    >KSh 200</span
-                                >.
-                            </p>
-                            <form
-                                id="withdrawForm"
-                                class="flex flex-col sm:flex-row gap-3"
-                            >
-                                <input
-                                    id="withdrawAmount"
-                                    name="amount"
-                                    type="number"
-                                    min="1"
-                                    step="1"
-                                    placeholder="Amount in KSh"
-                                    class="flex-1 apple-input px-4 py-3.5 text-[15px]"
-                                />
-                                <button
-                                    class="apple-btn px-8 py-3.5 text-[15px]"
+                                    class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider"
+                                    >All amounts in KSh</span
                                 >
-                                    Request Payout
-                                </button>
-                            </form>
+                            </div>
                             <div
-                                id="withdrawMsg"
-                                class="mt-4 text-sm hide rounded-xl px-4 py-3"
-                            ></div>
+                                class="grid md:grid-cols-[240px_1fr] gap-8 items-center"
+                            >
+                                <div class="flex justify-center">
+                                    <div id="walletDonut" class="wallet-donut">
+                                        <div class="wallet-donut-inner">
+                                            <div
+                                                class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider"
+                                            >
+                                                Total
+                                            </div>
+                                            <div
+                                                id="donutTotal"
+                                                class="text-xl font-bold"
+                                            >
+                                                KSh 0
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="space-y-3">
+                                    <div
+                                        class="flex items-center justify-between"
+                                    >
+                                        <div class="flex items-center gap-2">
+                                            <span
+                                                class="w-3 h-3 rounded-full bg-[#34c759]"
+                                            ></span>
+                                            <span
+                                                class="text-sm font-medium text-gray-700"
+                                                >Available</span
+                                            >
+                                        </div>
+                                        <span
+                                            id="legendAvailable"
+                                            class="font-semibold text-[15px]"
+                                            >KSh 0</span
+                                        >
+                                    </div>
+                                    <div
+                                        class="flex items-center justify-between"
+                                    >
+                                        <div class="flex items-center gap-2">
+                                            <span
+                                                class="w-3 h-3 rounded-full bg-[#ff9f0a]"
+                                            ></span>
+                                            <span
+                                                class="text-sm font-medium text-gray-700"
+                                                >Pending (settling)</span
+                                            >
+                                        </div>
+                                        <span
+                                            id="legendPending"
+                                            class="font-semibold text-[15px]"
+                                            >KSh 0</span
+                                        >
+                                    </div>
+                                    <div
+                                        class="flex items-center justify-between"
+                                    >
+                                        <div class="flex items-center gap-2">
+                                            <span
+                                                class="w-3 h-3 rounded-full bg-[#0071e3]"
+                                            ></span>
+                                            <span
+                                                class="text-sm font-medium text-gray-700"
+                                                >Processing payout</span
+                                            >
+                                        </div>
+                                        <span
+                                            id="legendProcessing"
+                                            class="font-semibold text-[15px]"
+                                            >KSh 0</span
+                                        >
+                                    </div>
+                                    <div
+                                        class="flex items-center justify-between"
+                                    >
+                                        <div class="flex items-center gap-2">
+                                            <span
+                                                class="w-3 h-3 rounded-full bg-[#8b5cf6]"
+                                            ></span>
+                                            <span
+                                                class="text-sm font-medium text-gray-700"
+                                                >Paid to M-Pesa</span
+                                            >
+                                        </div>
+                                        <span
+                                            id="legendPaid"
+                                            class="font-semibold text-[15px]"
+                                            >KSh 0</span
+                                        >
+                                    </div>
+                                    <div
+                                        class="flex items-center justify-between pt-3 border-t border-gray-100 mt-3"
+                                    >
+                                        <span
+                                            class="text-sm font-bold text-black"
+                                            >Total earned</span
+                                        >
+                                        <span
+                                            id="legendTotal"
+                                            class="font-bold text-[15px] text-black"
+                                            >KSh 0</span
+                                        >
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+
+                        <!-- Withdraw card -->
+                        <div class="apple-card p-6 md:p-8">
+                            <div
+                                class="flex items-start justify-between gap-4 flex-wrap"
+                            >
+                                <div>
+                                    <h3
+                                        class="text-xl font-bold tracking-tight"
+                                    >
+                                        Withdraw to M-Pesa
+                                    </h3>
+                                    <p
+                                        class="text-[15px] text-gray-500 mt-1 max-w-md"
+                                    >
+                                        Transfer your available balance directly
+                                        to
+                                        <span
+                                            id="walletPayoutPhone"
+                                            class="font-semibold text-black"
+                                            >your M-Pesa</span
+                                        >. Minimum
+                                        <span
+                                            id="minWithdrawLabel"
+                                            class="font-semibold text-black"
+                                            >KSh 200</span
+                                        >.
+                                    </p>
+                                </div>
+                            </div>
+                            <div
+                                class="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+                            >
+                                <div>
+                                    <div
+                                        class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider"
+                                    >
+                                        Available now
+                                    </div>
+                                    <div
+                                        id="walletAvailableBig"
+                                        class="text-3xl font-bold mt-0.5"
+                                    >
+                                        KSh 0
+                                    </div>
+                                </div>
+                                <button
+                                    id="openWithdrawBtn"
+                                    class="apple-btn px-8 py-3.5 text-[15px] w-full sm:w-auto"
+                                >
+                                    Withdraw
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Ledger -->
                         <div class="apple-card overflow-hidden">
                             <div
                                 class="px-6 py-4 border-b border-gray-100 bg-gray-50/50"
                             >
                                 <h3 class="font-semibold text-[15px]">
-                                    Wallet Ledger
+                                    Wallet ledger
                                 </h3>
                             </div>
                             <div
@@ -513,6 +1064,7 @@
                         </div>
                     </div>
 
+                    <!-- ============ HISTORY ============ -->
                     <div id="view-history" class="hide space-y-6">
                         <div class="apple-card overflow-hidden">
                             <div
@@ -542,7 +1094,113 @@
                         </div>
                     </div>
 
+                    <!-- ============ PROFILE ============ -->
                     <div id="view-profile" class="hide space-y-6">
+                        <div class="apple-card p-6 md:p-8">
+                            <div class="flex items-center gap-5 flex-wrap">
+                                <div
+                                    id="profileAvatar"
+                                    class="profile-avatar"
+                                    style="
+                                        background: linear-gradient(
+                                            135deg,
+                                            #0071e3,
+                                            #34c759
+                                        );
+                                    "
+                                >
+                                    --
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div
+                                        class="flex items-center gap-2 flex-wrap"
+                                    >
+                                        <h2
+                                            id="profileName"
+                                            class="text-2xl font-bold tracking-tight"
+                                        >
+                                            —
+                                        </h2>
+                                        <span
+                                            id="profileStatusBadge"
+                                            class="text-[11px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-full bg-gray-100 text-gray-600"
+                                            >—</span
+                                        >
+                                    </div>
+                                    <div
+                                        id="profileMeta"
+                                        class="text-sm text-gray-500 mt-1"
+                                    >
+                                        —
+                                    </div>
+                                </div>
+                            </div>
+                            <div
+                                class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3"
+                            >
+                                <div
+                                    class="bg-gray-50 rounded-xl p-3 border border-gray-100"
+                                >
+                                    <div
+                                        class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider"
+                                    >
+                                        Member since
+                                    </div>
+                                    <div
+                                        id="profileJoined"
+                                        class="font-semibold text-sm mt-0.5"
+                                    >
+                                        —
+                                    </div>
+                                </div>
+                                <div
+                                    class="bg-gray-50 rounded-xl p-3 border border-gray-100"
+                                >
+                                    <div
+                                        class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider"
+                                    >
+                                        Referral code
+                                    </div>
+                                    <div
+                                        id="profileCode"
+                                        class="font-semibold text-sm mt-0.5 font-mono text-[#0071e3]"
+                                    >
+                                        —
+                                    </div>
+                                </div>
+                                <div
+                                    class="bg-gray-50 rounded-xl p-3 border border-gray-100"
+                                >
+                                    <div
+                                        class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider"
+                                    >
+                                        Paid referrals
+                                    </div>
+                                    <div
+                                        id="profileReferrals"
+                                        class="font-semibold text-sm mt-0.5"
+                                    >
+                                        0
+                                    </div>
+                                </div>
+                                <div
+                                    class="bg-gray-50 rounded-xl p-3 border border-gray-100"
+                                >
+                                    <div
+                                        class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider"
+                                    >
+                                        Lifetime earned
+                                    </div>
+                                    <div
+                                        id="profileLifetime"
+                                        class="font-semibold text-sm mt-0.5"
+                                    >
+                                        KSh 0
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="apple-card p-6 md:p-8">
                             <h3 class="text-xl font-bold tracking-tight mb-6">
                                 Personal Information
@@ -615,28 +1273,129 @@
                                 class="mt-4 text-sm hide rounded-xl px-4 py-3"
                             ></div>
                         </div>
+
+                        <div
+                            class="apple-card p-6 md:p-8 border-2 border-red-200 bg-red-50/40"
+                        >
+                            <h3
+                                class="text-xl font-bold tracking-tight text-red-700"
+                            >
+                                Danger zone
+                            </h3>
+                            <p class="text-[15px] text-gray-600 mt-2">
+                                Permanently delete your account, wallet,
+                                commissions, and all associated data. This
+                                cannot be undone and syncs immediately to the
+                                cloud database.
+                            </p>
+                            <p class="text-xs text-gray-500 mt-2">
+                                Requires zero available balance and no pending
+                                withdrawals. Any un-matured (pending)
+                                commissions will be forfeited.
+                            </p>
+                            <button
+                                id="deleteAccountBtn"
+                                class="mt-4 bg-red-500 hover:bg-red-600 text-white rounded-full px-6 py-3 text-[15px] font-medium transition-colors"
+                            >
+                                Delete my account
+                            </button>
+                            <div
+                                id="deleteAccountMsg"
+                                class="mt-4 text-sm hide rounded-xl px-4 py-3"
+                            ></div>
+                        </div>
                     </div>
                 </div>
             </main>
 
+            <!-- Bottom nav (mobile) -->
             <nav
-                class="md:hidden fixed bottom-0 w-full glass-nav border-t border-gray-200 pb-safe z-50"
+                class="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-gray-200 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] pb-safe"
             >
-                <div class="flex justify-around items-center h-16">
+                <div
+                    class="flex justify-around items-stretch h-[68px] max-w-lg mx-auto"
+                >
                     <button data-view="overview" class="bottom-nav-item active">
-                        <span class="text-[10px] font-medium">Home</span>
+                        <svg
+                            class="nav-icon w-6 h-6"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                            />
+                        </svg>
+                        <span class="nav-label text-[11px] mt-1">Home</span>
                     </button>
                     <button data-view="referrals" class="bottom-nav-item">
-                        <span class="text-[10px] font-medium">Referrals</span>
+                        <svg
+                            class="nav-icon w-6 h-6"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                            />
+                        </svg>
+                        <span class="nav-label text-[11px] mt-1"
+                            >Referrals</span
+                        >
                     </button>
                     <button data-view="wallet" class="bottom-nav-item">
-                        <span class="text-[10px] font-medium">Wallet</span>
+                        <svg
+                            class="nav-icon w-6 h-6"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                            />
+                        </svg>
+                        <span class="nav-label text-[11px] mt-1">Wallet</span>
                     </button>
                     <button data-view="history" class="bottom-nav-item">
-                        <span class="text-[10px] font-medium">History</span>
+                        <svg
+                            class="nav-icon w-6 h-6"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                        </svg>
+                        <span class="nav-label text-[11px] mt-1">History</span>
                     </button>
                     <button data-view="profile" class="bottom-nav-item">
-                        <span class="text-[10px] font-medium">Profile</span>
+                        <svg
+                            class="nav-icon w-6 h-6"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                            />
+                        </svg>
+                        <span class="nav-label text-[11px] mt-1">Profile</span>
                     </button>
                 </div>
             </nav>
@@ -645,7 +1404,7 @@
         <!-- TOASTS -->
         <div
             id="toastContainer"
-            class="fixed top-4 right-4 z-[200] space-y-2 pointer-events-none"
+            class="fixed top-4 right-4 left-4 sm:left-auto z-[200] space-y-2 pointer-events-none flex flex-col items-end"
         ></div>
 
         <!-- PAYMENT MODAL -->
@@ -778,6 +1537,220 @@
             </div>
         </div>
 
+        <!-- WITHDRAW MODAL -->
+        <div
+            id="withdrawModal"
+            class="hide fixed inset-0 z-[110] bg-black/50 backdrop-blur-sm flex items-center justify-center px-4 py-8 overflow-y-auto"
+        >
+            <div class="apple-card p-6 md:p-8 w-full max-w-md my-auto">
+                <!-- Step 1: form -->
+                <div id="wdStep1">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold tracking-tight">
+                            Withdraw funds
+                        </h2>
+                        <button
+                            id="wdClose"
+                            class="text-gray-400 hover:text-black text-2xl leading-none -mr-1"
+                            aria-label="Close"
+                        >
+                            &times;
+                        </button>
+                    </div>
+
+                    <!-- Available (compact) -->
+                    <div
+                        class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-5 flex items-center justify-between"
+                    >
+                        <div>
+                            <div
+                                class="text-[10px] font-semibold text-[#0071e3] uppercase tracking-wider"
+                            >
+                                Available to withdraw
+                            </div>
+                            <div
+                                id="wdAvailable"
+                                class="text-lg font-bold text-[#0071e3] mt-0.5"
+                            >
+                                KSh 0
+                            </div>
+                        </div>
+                        <svg
+                            class="w-6 h-6 text-[#0071e3] opacity-40"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                            />
+                        </svg>
+                    </div>
+
+                    <label
+                        class="block text-sm font-medium text-gray-700 mb-1.5"
+                        >Amount (KSh)</label
+                    >
+                    <input
+                        id="wdAmount"
+                        type="number"
+                        min="200"
+                        step="1"
+                        inputmode="numeric"
+                        class="w-full apple-input px-4 py-3 text-[15px]"
+                        placeholder="Enter amount"
+                    />
+                    <div
+                        class="flex gap-2 flex-wrap mt-3 mb-4"
+                        id="wdQuickAmounts"
+                    >
+                        <button
+                            type="button"
+                            data-wd-quick="200"
+                            class="quick-amount-btn"
+                        >
+                            KSh 200
+                        </button>
+                        <button
+                            type="button"
+                            data-wd-quick="500"
+                            class="quick-amount-btn"
+                        >
+                            KSh 500
+                        </button>
+                        <button
+                            type="button"
+                            data-wd-quick="1000"
+                            class="quick-amount-btn"
+                        >
+                            KSh 1,000
+                        </button>
+                        <button
+                            type="button"
+                            data-wd-quick="all"
+                            class="quick-amount-btn"
+                        >
+                            All
+                        </button>
+                    </div>
+
+                    <label
+                        class="block text-sm font-medium text-gray-700 mb-1.5"
+                        >Payout number</label
+                    >
+                    <select
+                        id="wdPayout"
+                        class="w-full apple-input px-4 py-3 text-[15px] mb-5"
+                    >
+                        <option value="">Loading…</option>
+                    </select>
+
+                    <button
+                        id="wdSubmit"
+                        class="w-full apple-btn py-3.5 text-[15px]"
+                    >
+                        Withdraw to M-Pesa
+                    </button>
+
+                    <div
+                        id="wdErrMsg"
+                        class="hide mt-3 text-sm rounded-xl px-4 py-3"
+                    ></div>
+                </div>
+
+                <!-- Step 2: waiting -->
+                <div id="wdStep2" class="hide text-center py-6">
+                    <div class="w-16 h-16 mx-auto mb-6 relative">
+                        <div
+                            class="absolute inset-0 rounded-full border-4 border-gray-100"
+                        ></div>
+                        <div
+                            class="absolute inset-0 rounded-full border-4 border-[#0071e3] border-t-transparent spinner"
+                        ></div>
+                    </div>
+                    <h2 class="text-xl font-bold">Processing withdrawal</h2>
+                    <p class="text-[15px] text-gray-500 mt-2">
+                        Sending your request to M-Pesa…
+                    </p>
+                </div>
+
+                <!-- Step 3: success -->
+                <div id="wdStep3" class="hide text-center py-4">
+                    <div
+                        class="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-6"
+                    >
+                        <svg
+                            class="w-9 h-9 text-[#34c759]"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="3"
+                                d="M5 13l4 4L19 7"
+                            />
+                        </svg>
+                    </div>
+                    <h2 class="text-xl font-bold">Withdrawal initiated</h2>
+                    <p class="text-[15px] text-gray-600 mt-2 leading-relaxed">
+                        <span
+                            id="wdSuccessAmount"
+                            class="font-semibold text-black"
+                            >KSh 0</span
+                        >
+                        is on its way to your M-Pesa (<span
+                            id="wdSuccessPhone"
+                            class="font-mono"
+                            >07xxxxxxxx</span
+                        >).
+                    </p>
+                    <p class="text-sm text-gray-500 mt-3 leading-relaxed">
+                        Your funds will be allocated to your M-Pesa within a few
+                        hours — usually much sooner. You'll receive a
+                        confirmation SMS from Safaricom once the transfer is
+                        complete.
+                    </p>
+                    <button id="wdDone" class="w-full apple-btn py-3 mt-5">
+                        Done
+                    </button>
+                </div>
+
+                <!-- Step 4: error -->
+                <div id="wdStep4" class="hide text-center py-4">
+                    <div
+                        class="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-6"
+                    >
+                        <svg
+                            class="w-9 h-9 text-red-500"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="3"
+                                d="M6 18L18 6M6 6l12 12"
+                            />
+                        </svg>
+                    </div>
+                    <h2 class="text-xl font-bold">Withdrawal failed</h2>
+                    <p
+                        id="wdFailText"
+                        class="text-[15px] text-gray-600 mt-2"
+                    ></p>
+                    <button id="wdRetry" class="w-full apple-btn py-3 mt-5">
+                        Try again
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <script>
             (() => {
                 const $ = (s) => document.querySelector(s);
@@ -788,6 +1761,40 @@
                         minimumFractionDigits: 0,
                         maximumFractionDigits: 2,
                     });
+                const fmtShort = (kobo) => {
+                    const k = kobo || 0;
+                    if (k >= 100000000)
+                        return "KSh " + (k / 100000000).toFixed(1) + "M";
+                    if (k >= 100000)
+                        return "KSh " + (k / 100000).toFixed(1) + "K";
+                    return fmt(k);
+                };
+                const fmtPhone = (p) => {
+                    if (!p) return "";
+                    const s = String(p);
+                    if (s.startsWith("254") && s.length === 12)
+                        return "0" + s.slice(3);
+                    return s;
+                };
+                const relTime = (iso) => {
+                    if (!iso) return "";
+                    const d = new Date(iso);
+                    const sec = Math.floor((Date.now() - d) / 1000);
+                    if (sec < 60) return "just now";
+                    if (sec < 3600) return Math.floor(sec / 60) + "m ago";
+                    if (sec < 86400) return Math.floor(sec / 3600) + "h ago";
+                    if (sec < 604800) return Math.floor(sec / 86400) + "d ago";
+                    return d.toLocaleDateString();
+                };
+
+                function escapeHtml(str) {
+                    return String(str == null ? "" : str)
+                        .replace(/&/g, "&amp;")
+                        .replace(/</g, "&lt;")
+                        .replace(/>/g, "&gt;")
+                        .replace(/"/g, "&quot;")
+                        .replace(/'/g, "&#39;");
+                }
 
                 function showMsg(el, text, type) {
                     el.textContent = text;
@@ -799,22 +1806,38 @@
                             : "bg-green-50 text-green-700 border border-green-200");
                 }
 
-                // Toasts
+                /* ---- Enhanced toast ---- */
                 function showToast(text, type) {
                     const el = document.createElement("div");
-                    el.className =
-                        "toast pointer-events-auto apple-card px-4 py-3 text-sm font-medium max-w-xs " +
-                        (type === "error" ? "text-red-600" : "text-green-700");
-                    el.textContent = text;
+                    const bg =
+                        type === "error"
+                            ? "bg-[#ff3b30]"
+                            : type === "info"
+                              ? "bg-[#0071e3]"
+                              : "bg-[#34c759]";
+                    el.className = `toast pointer-events-auto ${bg} text-white px-5 py-3.5 rounded-2xl text-sm font-semibold flex items-center gap-3`;
+                    el.style.minWidth = "240px";
+                    el.style.maxWidth = "380px";
+                    const icon =
+                        type === "error"
+                            ? '<svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>'
+                            : '<svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+                    el.innerHTML = `${icon}<span class="leading-snug">${escapeHtml(text)}</span>`;
                     $("#toastContainer").appendChild(el);
                     setTimeout(() => {
+                        el.style.transition = "opacity 0.3s, transform 0.3s";
                         el.style.opacity = "0";
-                        el.style.transition = "opacity .3s";
+                        el.style.transform = "translateY(-12px)";
                     }, 3500);
                     setTimeout(() => el.remove(), 4000);
                 }
 
                 let config = null;
+                let currentWallet = null;
+                let currentUser = null;
+                let currentUserId = null;
+                let liveWithdrawalsInterval = null;
+
                 (function () {
                     const cached = localStorage.getItem("rk_config");
                     if (cached) {
@@ -860,7 +1883,6 @@
                     return data;
                 }
 
-                // NAV
                 function switchView(viewName) {
                     $$('[id^="view-"]').forEach((v) => v.classList.add("hide"));
                     const target = $("#view-" + viewName);
@@ -894,7 +1916,20 @@
                     ),
                 );
 
-                // SSE
+                $("#heroWithdrawBtn").addEventListener("click", () =>
+                    openWithdrawModal(),
+                );
+                $("#heroReferralsBtn").addEventListener("click", () =>
+                    switchView("referrals"),
+                );
+                $("#viewAllActivityBtn").addEventListener("click", () =>
+                    switchView("wallet"),
+                );
+                $("#openWithdrawBtn").addEventListener("click", () =>
+                    openWithdrawModal(),
+                );
+
+                // ---- SSE ----
                 let sse = null;
                 function connectSSE() {
                     if (sse) sse.close();
@@ -916,9 +1951,10 @@
                         loadReferrals(1);
                         loadAll();
                     } else if (evt.type === "commission_credited") {
-                        showToast(`Commission: +${evt.amount}`);
+                        showToast(`Commission credited: +${evt.amount}`);
                         loadAll();
                         loadWallet(1);
+                        loadOverviewActivity();
                     } else if (evt.type === "commission_eligible") {
                         showToast("Commission became eligible!");
                         loadAll();
@@ -926,28 +1962,41 @@
                         showToast("Withdrawal paid to M-Pesa!");
                         loadAll();
                         loadWithdrawals();
+                        loadOverviewActivity();
+                        loadLiveWithdrawals();
+                    } else if (evt.type === "withdrawal_queued") {
+                        showToast("Withdrawal queued — will arrive within 24h");
+                        loadAll();
+                        loadWithdrawals();
+                        loadLiveWithdrawals();
+                    } else if (evt.type === "withdrawal_processing") {
+                        showToast("Sending your withdrawal to M-Pesa…", "info");
+                        loadAll();
+                        loadWithdrawals();
+                        loadLiveWithdrawals();
                     } else if (evt.type === "payment_success") {
                         showToast("Payment confirmed!");
                         loadAll();
                     }
                 }
 
-                // BOOT
                 async function boot() {
                     try {
-                        const me = await api("/api/auth/me");
+                        await api("/api/auth/me");
                         $("#loginView").classList.add("hide");
                         $("#dashboardView").classList.remove("hide");
-                        // Fire all loads in parallel for zero-latency feel
                         await Promise.allSettled([
                             loadAll(),
                             loadReferrals(1),
                             loadWallet(1),
                             loadWithdrawals(),
                             loadPayments(),
+                            loadOverviewActivity(),
                         ]);
                         connectSSE();
                         handlePaymentQuery();
+                        // Start live ticker after we know own user id
+                        startLiveWithdrawals();
                     } catch (e) {
                         $("#loginView").classList.remove("hide");
                     }
@@ -978,7 +2027,6 @@
                     }
                 }
 
-                // LOGIN
                 $("#loginForm").addEventListener("submit", async (e) => {
                     e.preventDefault();
                     const fd = new FormData(e.target);
@@ -1003,9 +2051,49 @@
                 $("#logoutBtnDesktop").addEventListener("click", handleLogout);
                 $("#logoutBtnMobile").addEventListener("click", handleLogout);
 
-                // LOAD ALL (fast, minimal data)
+                // ---- Wallet donut ----
+                function updateDonut(wallet) {
+                    const total = wallet.totalEarningsKobo || 0;
+                    const donut = $("#walletDonut");
+                    if (!donut) return;
+                    if (total === 0) {
+                        donut.style.background =
+                            "conic-gradient(#e5e7eb 0% 100%)";
+                        return;
+                    }
+                    const avail = ((wallet.availableKobo || 0) / total) * 100;
+                    const pend = ((wallet.pendingKobo || 0) / total) * 100;
+                    const proc = ((wallet.processingKobo || 0) / total) * 100;
+                    const paid = ((wallet.paidKobo || 0) / total) * 100;
+                    let a = 0;
+                    const stops = [];
+                    if (avail > 0.1) {
+                        stops.push(`#34c759 ${a}% ${a + avail}%`);
+                        a += avail;
+                    }
+                    if (pend > 0.1) {
+                        stops.push(`#ff9f0a ${a}% ${a + pend}%`);
+                        a += pend;
+                    }
+                    if (proc > 0.1) {
+                        stops.push(`#0071e3 ${a}% ${a + proc}%`);
+                        a += proc;
+                    }
+                    if (paid > 0.1) {
+                        stops.push(`#8b5cf6 ${a}% ${a + paid}%`);
+                        a += paid;
+                    }
+                    if (a < 99.9) stops.push(`#e5e7eb ${a}% 100%`);
+                    donut.style.background = `conic-gradient(${stops.join(", ")})`;
+                }
+
+                // ---- Main load ----
                 async function loadAll() {
                     const data = await api("/api/member/overview");
+                    currentUser = data.user;
+                    currentUserId = data.user.id;
+                    currentWallet = data.wallet;
+
                     const badge = $("#userStatusBadge");
                     badge.textContent = (data.user.status || "").replace(
                         "_",
@@ -1018,34 +2106,119 @@
                             : data.user.status === "pending_payment"
                               ? "bg-orange-100 text-orange-700"
                               : "bg-gray-100 text-gray-600");
+
                     $("#payCTA").classList.toggle(
                         "hide",
                         data.user.status === "active",
                     );
+
+                    // Hero
                     $("#statAvailable").textContent = fmt(
                         data.wallet.availableKobo,
                     );
-                    $("#statPending").textContent = fmt(
-                        data.wallet.pendingKobo,
-                    );
+                    $("#statPending").textContent =
+                        fmt(data.wallet.pendingKobo) + " pending";
                     $("#statEarned").textContent = fmt(
                         data.wallet.totalEarningsKobo,
                     );
                     $("#statWithdrawn").textContent = fmt(
                         data.wallet.withdrawnKobo,
                     );
+                    $("#statReferrals").textContent =
+                        data.referralStats.paidReferrals || 0;
+
+                    // Referral
                     const dynamicRefUrl =
                         window.location.origin +
                         "/?ref=" +
                         data.user.referralCode;
                     $("#referralUrl").value = dynamicRefUrl;
                     $("#refCode").textContent = data.user.referralCode || "—";
+                    $("#refCodePill").textContent =
+                        data.user.referralCode || "—";
                     $("#refClicks").textContent = data.referralStats.clicks;
                     $("#refPaid").textContent =
                         data.referralStats.paidReferrals;
                     $("#refConv").textContent =
                         (data.referralStats.conversionRate * 100).toFixed(1) +
                         "%";
+
+                    // Wallet donut
+                    updateDonut(data.wallet);
+                    $("#donutTotal").textContent = fmtShort(
+                        data.wallet.totalEarningsKobo,
+                    );
+                    $("#legendAvailable").textContent = fmt(
+                        data.wallet.availableKobo,
+                    );
+                    $("#legendPending").textContent = fmt(
+                        data.wallet.pendingKobo,
+                    );
+                    $("#legendProcessing").textContent = fmt(
+                        data.wallet.processingKobo,
+                    );
+                    $("#legendPaid").textContent = fmt(data.wallet.paidKobo);
+                    $("#legendTotal").textContent = fmt(
+                        data.wallet.totalEarningsKobo,
+                    );
+                    $("#walletAvailableBig").textContent = fmt(
+                        data.wallet.availableKobo,
+                    );
+
+                    // Wallet payout phone
+                    if (data.user.payoutPhone) {
+                        $("#walletPayoutPhone").textContent = fmtPhone(
+                            data.user.payoutPhone,
+                        );
+                    }
+
+                    // Profile
+                    const name = data.user.fullName || "You";
+                    const initials = name
+                        .trim()
+                        .split(/\s+/)
+                        .slice(0, 2)
+                        .map((p) => p[0] || "")
+                        .join("")
+                        .toUpperCase();
+                    $("#profileAvatar").textContent = initials || "U";
+                    $("#profileName").textContent = name;
+                    const pBadge = $("#profileStatusBadge");
+                    pBadge.textContent = (data.user.status || "").replace(
+                        "_",
+                        " ",
+                    );
+                    pBadge.className =
+                        "text-[11px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-full " +
+                        (data.user.status === "active"
+                            ? "bg-green-100 text-green-700"
+                            : data.user.status === "pending_payment"
+                              ? "bg-orange-100 text-orange-700"
+                              : "bg-gray-100 text-gray-600");
+                    $("#profileMeta").textContent =
+                        (data.user.email || "") +
+                        (data.user.email && data.user.phone ? " · " : "") +
+                        (data.user.phone
+                            ? maskPhoneDisplay(data.user.phone)
+                            : "");
+                    $("#profileJoined").textContent = data.user.createdAt
+                        ? new Date(data.user.createdAt).toLocaleDateString(
+                              "en-KE",
+                              {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                              },
+                          )
+                        : "—";
+                    $("#profileCode").textContent =
+                        data.user.referralCode || "—";
+                    $("#profileReferrals").textContent =
+                        data.referralStats.paidReferrals || 0;
+                    $("#profileLifetime").textContent = fmt(
+                        data.wallet.totalEarningsKobo,
+                    );
+
                     const pf = $("#profileForm");
                     if (pf) {
                         pf.fullName.value = data.user.fullName || "";
@@ -1059,7 +2232,120 @@
                         );
                 }
 
-                // REFERRALS
+                function maskPhoneDisplay(phone) {
+                    if (!phone) return "";
+                    const s = String(phone);
+                    if (s.length < 6) return s;
+                    return s.slice(0, 4) + "***" + s.slice(-2);
+                }
+
+                // ---- Overview activity ----
+                async function loadOverviewActivity() {
+                    try {
+                        const d = await api(
+                            "/api/member/wallet/transactions?page=1&pageSize=5",
+                        );
+                        const list = $("#overviewActivity");
+                        if (!d.items || !d.items.length) {
+                            list.innerHTML =
+                                '<div class="p-8 text-sm text-gray-400 text-center">No activity yet. Share your link to start earning.</div>';
+                            return;
+                        }
+                        list.innerHTML = d.items
+                            .map(renderActivityRow)
+                            .join("");
+                    } catch (e) {}
+                }
+
+                function renderActivityRow(t) {
+                    const isCredit = t.direction === "credit";
+                    const label =
+                        t.description ||
+                        (t.entry_type || "").replace(/_/g, " ");
+                    const amtClass = isCredit
+                        ? "text-[#34c759]"
+                        : "text-gray-800";
+                    const iconBg = isCredit
+                        ? "bg-green-50 text-[#34c759]"
+                        : "bg-gray-100 text-gray-600";
+                    const iconArrow = isCredit
+                        ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m0 0l-6-6m6 6l6-6"/>'
+                        : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 20V4m0 0l-6 6m6-6l6 6"/>';
+                    return `
+                        <div class="px-6 py-3.5 flex items-center gap-3">
+                            <div class="activity-icon ${iconBg}">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">${iconArrow}</svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-medium text-[14px] truncate capitalize">${escapeHtml(label)}</div>
+                                <div class="text-xs text-gray-500 mt-0.5">${relTime(t.created_at)}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-semibold text-[15px] ${amtClass}">
+                                    ${isCredit ? "+" : "−"} ${fmt(t.amount_kobo)}
+                                </div>
+                            </div>
+                        </div>`;
+                }
+
+                // ---- Live withdrawals ----
+                async function loadLiveWithdrawals() {
+                    try {
+                        const d = await api("/api/member/recent-withdrawals");
+                        const list = $("#liveWithdrawals");
+                        const items = (d.items || []).filter(
+                            (it) => it.userId !== currentUserId,
+                        );
+                        if (!items.length) {
+                            list.innerHTML =
+                                '<div class="p-6 text-sm text-gray-400 text-center">No withdrawals yet — be the first to cash out!</div>';
+                            return;
+                        }
+                        list.innerHTML = items
+                            .map(renderLiveWithdrawal)
+                            .join("");
+                    } catch (e) {
+                        // Silent — the ticker is cosmetic
+                    }
+                }
+
+                function renderLiveWithdrawal(item) {
+                    const initial = (item.name || "?")
+                        .trim()
+                        .charAt(0)
+                        .toUpperCase();
+                    const statusWord =
+                        item.status === "paid"
+                            ? "withdrew"
+                            : item.status === "processing"
+                              ? "is withdrawing"
+                              : "queued";
+                    return `
+                        <div class="px-5 py-3 flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-blue-50 text-[#0071e3] flex items-center justify-center font-bold text-xs flex-shrink-0">${escapeHtml(initial)}</div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm leading-snug">
+                                    <span class="font-semibold">${escapeHtml(item.name)}</span>
+                                    <span class="text-gray-500"> ${statusWord} </span>
+                                    <span class="font-semibold text-[#34c759]">${fmt(item.amountKobo)}</span>
+                                </div>
+                                <div class="text-[11px] text-gray-400 mt-0.5">${relTime(item.at)}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                function startLiveWithdrawals() {
+                    loadLiveWithdrawals();
+                    if (liveWithdrawalsInterval)
+                        clearInterval(liveWithdrawalsInterval);
+                    liveWithdrawalsInterval = setInterval(
+                        loadLiveWithdrawals,
+                        15000,
+                    );
+                }
+
+                // ---- Referrals ----
                 let refPage = 1;
                 async function loadReferrals(page) {
                     refPage = page;
@@ -1097,7 +2383,7 @@
                     loadReferrals(Math.max(1, refPage - 1));
                 window.__refNext = () => loadReferrals(refPage + 1);
 
-                // WALLET
+                // ---- Wallet ledger ----
                 let walPage = 1;
                 async function loadWallet(page) {
                     walPage = page;
@@ -1113,16 +2399,7 @@
                         $("#walletPager").innerHTML = "";
                     } else {
                         list.innerHTML = data.items
-                            .map(
-                                (t) => `
-                            <div class="px-4 md:px-6 py-4 flex items-center justify-between gap-4">
-                                <div>
-                                    <div class="font-medium text-[15px]">${t.description || t.entry_type.replace(/_/g, " ")}</div>
-                                    <div class="text-xs text-gray-500 mt-0.5">${new Date(t.created_at).toLocaleString()}</div>
-                                </div>
-                                <div class="font-semibold text-[15px] ${t.direction === "credit" ? "text-[#34c759]" : "text-black"}">${t.direction === "credit" ? "+" : "-"} ${fmt(t.amount_kobo)}</div>
-                            </div>`,
-                            )
+                            .map(renderActivityRow)
                             .join("");
                         $("#walletPager").innerHTML = `
                             <button class="px-4 py-2 rounded-full bg-white border border-gray-200 disabled:opacity-40 font-medium hover:bg-gray-50" ${page <= 1 ? "disabled" : ""} onclick="window.__walPrev()">← Prev</button>
@@ -1133,34 +2410,180 @@
                 window.__walPrev = () => loadWallet(Math.max(1, walPage - 1));
                 window.__walNext = () => loadWallet(walPage + 1);
 
-                // WITHDRAW
-                $("#withdrawForm").addEventListener("submit", async (e) => {
-                    e.preventDefault();
-                    const amount = parseFloat(
-                        $("#withdrawAmount").value || "0",
+                // ---- Withdrawal modal ----
+                function setWdStep(n) {
+                    ["#wdStep1", "#wdStep2", "#wdStep3", "#wdStep4"].forEach(
+                        (id, i) => {
+                            $(id).classList.toggle("hide", i + 1 !== n);
+                        },
                     );
-                    if (!amount || amount <= 0) return;
+                }
+
+                function showWdError(text) {
+                    const el = $("#wdErrMsg");
+                    el.textContent = text;
+                    el.className =
+                        "mt-3 text-sm rounded-xl px-4 py-3 bg-red-50 text-red-600 border border-red-200";
+                    el.classList.remove("hide");
+                }
+                function clearWdError() {
+                    $("#wdErrMsg").classList.add("hide");
+                }
+
+                function openWithdrawModal() {
+                    setWdStep(1);
+                    clearWdError();
+                    $("#wdAmount").value = "";
+                    const avail =
+                        (currentWallet && currentWallet.availableKobo) || 0;
+                    $("#wdAvailable").textContent = fmt(avail);
+
+                    // Payout select
+                    const sel = $("#wdPayout");
+                    sel.innerHTML = "";
+                    const saved = currentUser && currentUser.payoutPhone;
+                    const login = currentUser && currentUser.phone;
+                    if (saved) {
+                        sel.innerHTML += `<option value="${escapeHtml(saved)}">${escapeHtml(fmtPhone(saved))} (saved payout)</option>`;
+                    }
+                    if (login && login !== saved) {
+                        sel.innerHTML += `<option value="${escapeHtml(login)}">${escapeHtml(fmtPhone(login))} (login number)</option>`;
+                    }
+                    if (!saved && !login) {
+                        sel.innerHTML = `<option value="">No payout number on file</option>`;
+                    }
+                    $("#withdrawModal").classList.remove("hide");
+                    document.body.style.overflow = "hidden";
+                    setTimeout(() => $("#wdAmount").focus(), 100);
+                }
+                function closeWithdrawModal() {
+                    $("#withdrawModal").classList.add("hide");
+                    document.body.style.overflow = "";
+                }
+
+                $("#wdClose").addEventListener("click", closeWithdrawModal);
+                $("#wdDone").addEventListener("click", closeWithdrawModal);
+                $("#wdRetry").addEventListener("click", () => {
+                    setWdStep(1);
+                    clearWdError();
+                });
+                $("#withdrawModal").addEventListener("click", (e) => {
+                    if (e.target.id !== "withdrawModal") return;
+                    if (!$("#wdStep2").classList.contains("hide")) return;
+                    closeWithdrawModal();
+                });
+                document.addEventListener("keydown", (e) => {
+                    if (e.key === "Escape") {
+                        if (!$("#withdrawModal").classList.contains("hide")) {
+                            if (!$("#wdStep2").classList.contains("hide"))
+                                return;
+                            closeWithdrawModal();
+                        }
+                    }
+                });
+
+                $$("#wdQuickAmounts button[data-wd-quick]").forEach((btn) => {
+                    btn.addEventListener("click", () => {
+                        const q = btn.dataset.wdQuick;
+                        if (q === "all") {
+                            const avail =
+                                (currentWallet &&
+                                    currentWallet.availableKobo) ||
+                                0;
+                            $("#wdAmount").value = Math.floor(avail / 100);
+                        } else {
+                            $("#wdAmount").value = q;
+                        }
+                    });
+                });
+
+                $("#wdSubmit").addEventListener("click", async () => {
+                    clearWdError();
+                    const amount = parseFloat($("#wdAmount").value || "0");
+                    const selected = $("#wdPayout").value;
+                    const minKobo =
+                        (config && config.minWithdrawalKobo) || 20000;
+                    const avail =
+                        (currentWallet && currentWallet.availableKobo) || 0;
+
+                    if (!selected) {
+                        showWdError(
+                            "No payout number available. Update it in Profile first.",
+                        );
+                        return;
+                    }
+                    if (!amount || amount <= 0) {
+                        showWdError("Enter an amount to withdraw.");
+                        return;
+                    }
+                    if (amount * 100 < minKobo) {
+                        showWdError(`Minimum withdrawal is ${fmt(minKobo)}.`);
+                        return;
+                    }
+                    if (amount * 100 > avail) {
+                        showWdError(`You can withdraw up to ${fmt(avail)}.`);
+                        return;
+                    }
+
+                    setWdStep(2);
+
                     try {
-                        await api("/api/member/withdrawals", {
+                        // If user picked a different payout number, save it first
+                        if (
+                            currentUser &&
+                            selected !== currentUser.payoutPhone
+                        ) {
+                            await api("/api/member/profile", {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({
+                                    payoutPhone: selected,
+                                }),
+                            });
+                            currentUser.payoutPhone = selected;
+                        }
+
+                        const r = await api("/api/member/withdrawals", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
                                 amountKobo: Math.round(amount * 100),
                             }),
                         });
-                        showMsg(
-                            $("#withdrawMsg"),
-                            "Withdrawal request submitted successfully.",
-                            "ok",
-                        );
-                        $("#withdrawAmount").value = "";
-                        loadWithdrawals();
+
+                        if (r.status === "failed") {
+                            $("#wdFailText").textContent =
+                                r.error ||
+                                "Withdrawal could not be processed. Please try again.";
+                            setWdStep(4);
+                            return;
+                        }
+
+                        // Success or queued — enhanced confirmation
+                        $("#wdSuccessAmount").textContent =
+                            "KSh " + amount.toLocaleString();
+                        $("#wdSuccessPhone").textContent = fmtPhone(selected);
+                        setWdStep(3);
+
+                        // Refresh data
                         loadAll();
-                    } catch (err) {
-                        showMsg($("#withdrawMsg"), err.message, "error");
+                        loadWithdrawals();
+                        loadOverviewActivity();
+                        loadLiveWithdrawals();
+                    } catch (e) {
+                        const msg = String(e.message || "Withdrawal failed.");
+                        // Friendly rewrite for the "whole commissions" case
+                        $("#wdFailText").textContent =
+                            /whole commissions/i.test(msg)
+                                ? "Try withdrawing a whole number of commissions (e.g. a multiple of KSh 50), or your entire available balance."
+                                : msg;
+                        setWdStep(4);
                     }
                 });
 
+                // ---- Withdrawals list ----
                 async function loadWithdrawals() {
                     const data = await api(
                         "/api/member/withdrawals?page=1&pageSize=20",
@@ -1172,26 +2595,32 @@
                         return;
                     }
                     list.innerHTML = data.items
-                        .map(
-                            (w) => `
-                        <div class="px-4 md:px-6 py-4 flex items-center justify-between gap-4">
-                            <div>
-                                <div class="font-medium text-[15px]">${fmt(w.amount_kobo)}</div>
-                                <div class="text-xs text-gray-500 mt-0.5">${new Date(w.created_at).toLocaleString()}</div>
-                            </div>
-                            <span class="text-[11px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-full ${
+                        .map((w) => {
+                            const badgeClass =
                                 w.status === "paid"
                                     ? "bg-green-100 text-green-700"
                                     : w.status === "failed"
                                       ? "bg-red-100 text-red-700"
-                                      : "bg-orange-100 text-orange-700"
-                            }">${w.status}</span>
-                        </div>`,
-                        )
+                                      : w.status === "queued"
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : "bg-orange-100 text-orange-700";
+                            const note =
+                                w.status === "queued"
+                                    ? '<div class="text-[11px] text-gray-500 mt-1">Queued — will arrive within 24h</div>'
+                                    : "";
+                            return `
+                        <div class="px-4 md:px-6 py-4 flex items-center justify-between gap-4">
+                            <div>
+                                <div class="font-medium text-[15px]">${fmt(w.amount_kobo)}</div>
+                                <div class="text-xs text-gray-500 mt-0.5">${new Date(w.created_at).toLocaleString()}</div>
+                                ${note}
+                            </div>
+                            <span class="text-[11px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-full ${badgeClass}">${w.status}</span>
+                        </div>`;
+                        })
                         .join("");
                 }
 
-                // PAYMENTS
                 async function loadPayments() {
                     const data = await api(
                         "/api/member/payments?page=1&pageSize=20",
@@ -1219,7 +2648,7 @@
                         .join("");
                 }
 
-                // PROFILE
+                // ---- Profile ----
                 $("#profileForm").addEventListener("submit", async (e) => {
                     e.preventDefault();
                     const fd = new FormData(e.target);
@@ -1238,6 +2667,7 @@
                             "Profile updated successfully.",
                             "ok",
                         );
+                        showToast("Profile updated");
                         loadAll();
                     } catch (err) {
                         showMsg($("#profileMsg"), err.message, "error");
@@ -1252,30 +2682,137 @@
                         "Notifications marked read.",
                         "ok",
                     );
+                    showToast("Notifications marked read");
                 });
 
-                // COPY / SHARE
+                // ---- Delete account ----
+                $("#deleteAccountBtn").addEventListener("click", async () => {
+                    const first = window.confirm(
+                        "Delete your account permanently? This removes your wallet, commissions, and all data. It cannot be undone.",
+                    );
+                    if (!first) return;
+                    const second = window.confirm(
+                        "Final confirmation: click OK to permanently delete your account.",
+                    );
+                    if (!second) return;
+
+                    const btn = $("#deleteAccountBtn");
+                    btn.disabled = true;
+                    btn.textContent = "Deleting…";
+                    try {
+                        const r = await api("/api/member/account", {
+                            method: "DELETE",
+                        });
+                        if (r.forfeitedPendingKobo > 0) {
+                            showMsg(
+                                $("#deleteAccountMsg"),
+                                `Account deleted. KSh ${(r.forfeitedPendingKobo / 100).toFixed(2)} of pending commissions were forfeited.`,
+                                "ok",
+                            );
+                        } else {
+                            showMsg(
+                                $("#deleteAccountMsg"),
+                                "Account deleted. Redirecting…",
+                                "ok",
+                            );
+                        }
+                        setTimeout(() => {
+                            localStorage.removeItem("rk_config");
+                            window.location.href = "/";
+                        }, 1500);
+                    } catch (err) {
+                        showMsg($("#deleteAccountMsg"), err.message, "error");
+                        btn.disabled = false;
+                        btn.textContent = "Delete my account";
+                    }
+                });
+
+                // ---- Copy link ----
                 $("#copyBtn").addEventListener("click", async () => {
                     try {
                         await navigator.clipboard.writeText(
                             $("#referralUrl").value,
                         );
-                        $("#copyBtn").textContent = "Copied!";
+                        $("#copyBtnText").textContent = "Copied!";
+                        showToast("Referral link copied to clipboard");
                         setTimeout(
-                            () => ($("#copyBtn").textContent = "Copy"),
+                            () => ($("#copyBtnText").textContent = "Copy link"),
                             1500,
                         );
-                    } catch (e) {}
-                });
-                $("#shareWaBtn").addEventListener("click", () => {
-                    const text = encodeURIComponent(
-                        "Join Referal Kenya and start earning! " +
-                            $("#referralUrl").value,
-                    );
-                    window.open("https://wa.me/?text=" + text, "_blank");
+                    } catch (e) {
+                        showToast(
+                            "Copy failed — select and copy manually.",
+                            "error",
+                        );
+                    }
                 });
 
-                // PAYMENT MODAL
+                // ---- Social share ----
+                function getShareMessage() {
+                    const url = $("#referralUrl").value;
+                    return (
+                        "Hi! Join me on Referal Kenya and earn KSh 50 " +
+                        "for every friend you refer. One-time KSh 100 " +
+                        "membership, instant M-Pesa payouts. " +
+                        "Register here: " +
+                        url
+                    );
+                }
+
+                $("#shareWa").addEventListener("click", () => {
+                    window.open(
+                        "https://wa.me/?text=" +
+                            encodeURIComponent(getShareMessage()),
+                        "_blank",
+                    );
+                });
+                $("#shareX").addEventListener("click", () => {
+                    const url = $("#referralUrl").value;
+                    window.open(
+                        "https://twitter.com/intent/tweet?text=" +
+                            encodeURIComponent(
+                                "Earn KSh 50 per referral on Referal Kenya. One-time KSh 100 membership, instant M-Pesa payouts.",
+                            ) +
+                            "&url=" +
+                            encodeURIComponent(url),
+                        "_blank",
+                    );
+                });
+                $("#shareFb").addEventListener("click", () => {
+                    const url = $("#referralUrl").value;
+                    window.open(
+                        "https://www.facebook.com/sharer/sharer.php?u=" +
+                            encodeURIComponent(url),
+                        "_blank",
+                    );
+                });
+                $("#shareTg").addEventListener("click", () => {
+                    const url = $("#referralUrl").value;
+                    window.open(
+                        "https://t.me/share/url?url=" +
+                            encodeURIComponent(url) +
+                            "&text=" +
+                            encodeURIComponent(
+                                "Earn KSh 50 per referral on Referal Kenya!",
+                            ),
+                        "_blank",
+                    );
+                });
+                $("#shareSms").addEventListener("click", () => {
+                    window.location.href =
+                        "sms:?body=" + encodeURIComponent(getShareMessage());
+                });
+                $("#shareEmail").addEventListener("click", () => {
+                    window.location.href =
+                        "mailto:?subject=" +
+                        encodeURIComponent(
+                            "Join me on Referal Kenya — earn KSh 50 per referral",
+                        ) +
+                        "&body=" +
+                        encodeURIComponent(getShareMessage());
+                });
+
+                // ---- Payment modal ----
                 let currentPaymentRef = null;
                 let pollTimer = null;
                 let pollDeadline = 0;

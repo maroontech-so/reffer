@@ -197,6 +197,12 @@
                     >
                         Audit log
                     </button>
+                    <button
+                        data-panel="sync"
+                        class="nav-item w-full text-left px-4 py-2.5 rounded-xl text-[15px]"
+                    >
+                        Sync
+                    </button>
                 </aside>
 
                 <!-- PANELS -->
@@ -281,15 +287,30 @@
                     <!-- Withdrawals -->
                     <div data-panel="withdrawals" class="hide">
                         <h1 class="text-2xl font-bold tracking-tight mb-6">
-                            Withdrawals
+                            Withdrawals &amp; Payouts
                         </h1>
-                        <div class="mb-4">
+
+                        <div
+                            id="shortfallBanner"
+                            class="hide mb-4 rounded-2xl border p-4 text-sm"
+                        >
+                            <div class="font-semibold mb-1">
+                                B2C wallet needs a top-up
+                            </div>
+                            <div id="shortfallBody" class="text-gray-700"></div>
+                        </div>
+
+                        <div class="mb-4 flex flex-wrap gap-3 items-center">
                             <button
-                                id="processPayoutsBtn"
+                                id="disburseBtn"
                                 class="apple-btn px-6 py-2.5 text-[15px]"
                             >
-                                Process pending payouts
+                                Disburse queued payouts
                             </button>
+                            <span
+                                id="queueSummary"
+                                class="text-sm text-gray-500"
+                            ></span>
                         </div>
                         <div
                             id="payoutMsg"
@@ -362,6 +383,49 @@
                             ></div>
                         </div>
                     </div>
+
+                    <!-- Sync -->
+                    <div data-panel="sync" class="hide">
+                        <h1 class="text-2xl font-bold tracking-tight mb-6">
+                            Turso Sync
+                        </h1>
+                        <div class="apple-card p-6 mb-4">
+                            <div
+                                id="syncStatus"
+                                class="text-[15px] space-y-2"
+                            ></div>
+                        </div>
+                        <div class="flex flex-wrap gap-3 mb-4">
+                            <button
+                                id="syncRefreshBtn"
+                                class="bg-gray-100 hover:bg-gray-200 text-black px-6 py-2.5 rounded-full font-medium text-[15px] transition-colors"
+                            >
+                                Refresh status
+                            </button>
+                            <button
+                                id="syncFlushBtn"
+                                class="apple-btn px-6 py-2.5 text-[15px]"
+                            >
+                                Flush queue
+                            </button>
+                            <button
+                                id="syncPushBtn"
+                                class="apple-btn px-6 py-2.5 text-[15px]"
+                            >
+                                Push local → Turso
+                            </button>
+                            <button
+                                id="syncPullBtn"
+                                class="bg-red-500 hover:bg-red-600 text-white px-6 py-2.5 rounded-full font-medium text-[15px] transition-colors"
+                            >
+                                Pull Turso → local
+                            </button>
+                        </div>
+                        <div
+                            id="syncMsg"
+                            class="hide text-sm rounded-xl px-4 py-3 mb-4"
+                        ></div>
+                    </div>
                 </main>
             </div>
         </div>
@@ -376,6 +440,15 @@
                         minimumFractionDigits: 0,
                         maximumFractionDigits: 2,
                     });
+
+                function escapeHtml(str) {
+                    return String(str == null ? "" : str)
+                        .replace(/&/g, "&amp;")
+                        .replace(/</g, "&lt;")
+                        .replace(/>/g, "&gt;")
+                        .replace(/"/g, "&quot;")
+                        .replace(/'/g, "&#39;");
+                }
 
                 function showMsg(el, text, type) {
                     el.textContent = text;
@@ -455,6 +528,7 @@
                     if (name === "reconciliation") loadReconciliation();
                     if (name === "settings") loadSettings();
                     if (name === "audit") loadAudit();
+                    if (name === "sync") loadSync();
                 }
 
                 async function boot() {
@@ -505,6 +579,10 @@
                             ),
                         ],
                         [
+                            "Queued payouts",
+                            `${d.queuedPayouts.count} · ${fmt(d.queuedPayouts.totalKobo)}`,
+                        ],
+                        [
                             "Open recon exceptions",
                             d.openReconciliationExceptions,
                         ],
@@ -513,8 +591,8 @@
                         .map(
                             ([k, v]) => `
       <div class="apple-card p-5">
-        <div class="text-xs font-medium text-gray-500 mb-1">${k}</div>
-        <div class="text-xl font-bold">${v}</div>
+        <div class="text-xs font-medium text-gray-500 mb-1">${escapeHtml(k)}</div>
+        <div class="text-xl font-bold">${escapeHtml(v)}</div>
       </div>
     `,
                         )
@@ -542,27 +620,43 @@
                             (u) => `
       <div class="px-6 py-4 flex items-center justify-between gap-4">
         <div>
-          <div class="font-semibold">${u.full_name} <span class="text-xs font-normal text-gray-500 ml-1">${u.phone}</span></div>
-          <div class="text-xs text-gray-500 mt-0.5">${u.email || "No email"} • Code: ${u.referral_code || "—"} • Joined ${new Date(u.created_at).toLocaleDateString()}</div>
+          <div class="font-semibold">${escapeHtml(u.full_name)} <span class="text-xs font-normal text-gray-500 ml-1">${escapeHtml(u.phone)}</span></div>
+          <div class="text-xs text-gray-500 mt-0.5">${escapeHtml(u.email || "No email")} • Code: ${escapeHtml(u.referral_code || "—")} • Joined ${new Date(u.created_at).toLocaleDateString()}</div>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
           <span class="text-xs font-medium px-2.5 py-1 rounded-full ${
               u.status === "active"
                   ? "bg-green-100 text-green-700"
                   : u.status === "suspended"
                     ? "bg-red-100 text-red-700"
                     : "bg-gray-100 text-gray-600"
-          }">${u.status}</span>
+          }">${escapeHtml(u.status)}</span>
           ${
               u.status === "suspended"
-                  ? `<button class="text-xs font-medium px-3 py-1.5 rounded-full bg-[#34c759] text-white hover:bg-green-600 transition-colors" onclick="window.__activate('${u.id}')">Activate</button>`
-                  : `<button class="text-xs font-medium px-3 py-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors" onclick="window.__suspend('${u.id}')">Suspend</button>`
+                  ? `<button data-action="activate" data-id="${escapeHtml(u.id)}" class="text-xs font-medium px-3 py-1.5 rounded-full bg-[#34c759] text-white hover:bg-green-600 transition-colors">Activate</button>`
+                  : `<button data-action="suspend" data-id="${escapeHtml(u.id)}" class="text-xs font-medium px-3 py-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors">Suspend</button>`
           }
+          <button data-action="delete" data-id="${escapeHtml(u.id)}" data-name="${escapeHtml(u.full_name)}" class="text-xs font-medium px-3 py-1.5 rounded-full bg-gray-800 text-white hover:bg-black transition-colors">Delete</button>
         </div>
       </div>
     `,
                         )
                         .join("");
+
+                    $$("#usersList button[data-action]").forEach((btn) => {
+                        btn.addEventListener("click", () => {
+                            const id = btn.dataset.id;
+                            if (btn.dataset.action === "suspend")
+                                window.__suspend(id);
+                            else if (btn.dataset.action === "activate")
+                                window.__activate(id);
+                            else if (btn.dataset.action === "delete")
+                                window.__deleteUser(
+                                    id,
+                                    btn.dataset.name || "this user",
+                                );
+                        });
+                    });
                 }
                 window.__suspend = async (id) => {
                     const reason =
@@ -583,6 +677,33 @@
                     });
                     loadUsers();
                 };
+                window.__deleteUser = async (id, name) => {
+                    if (
+                        !confirm(
+                            `Permanently delete ${name} and all their data? This cannot be undone.`,
+                        )
+                    )
+                        return;
+                    if (
+                        !confirm(
+                            "Final confirmation: this removes the user from both the local DB and Turso immediately.",
+                        )
+                    )
+                        return;
+                    try {
+                        const r = await api("/api/admin/users/" + id, {
+                            method: "DELETE",
+                        });
+                        if (r.forfeitedPendingKobo > 0) {
+                            alert(
+                                `User deleted. KSh ${(r.forfeitedPendingKobo / 100).toFixed(2)} of pending commissions were forfeited.`,
+                            );
+                        }
+                        loadUsers();
+                    } catch (e) {
+                        alert("Delete failed: " + e.message);
+                    }
+                };
                 $("#userSearchBtn").addEventListener("click", loadUsers);
 
                 async function loadPayments() {
@@ -600,12 +721,12 @@
                             (p) => `
       <div class="px-6 py-4 flex items-center justify-between gap-4">
         <div>
-          <div class="font-semibold">${p.internal_reference}</div>
-          <div class="text-xs text-gray-500 mt-0.5">${p.full_name || ""} • ${p.phone || ""} • ${new Date(p.created_at).toLocaleString()}</div>
+          <div class="font-semibold">${escapeHtml(p.internal_reference)}</div>
+          <div class="text-xs text-gray-500 mt-0.5">${escapeHtml(p.full_name || "")} • ${escapeHtml(p.phone || "")} • ${new Date(p.created_at).toLocaleString()}</div>
         </div>
         <div class="text-right">
           <div class="font-semibold">${fmt(p.actual_amount_kobo || p.expected_amount_kobo)}</div>
-          <div class="text-xs font-medium mt-0.5 ${p.status === "success" ? "text-[#34c759]" : p.status === "failed" ? "text-red-500" : "text-[#ff9f0a]"}">${p.status}</div>
+          <div class="text-xs font-medium mt-0.5 ${p.status === "success" ? "text-[#34c759]" : p.status === "failed" ? "text-red-500" : "text-[#ff9f0a]"}">${escapeHtml(p.status)}</div>
         </div>
       </div>
     `,
@@ -628,12 +749,12 @@
                             (c) => `
       <div class="px-6 py-4 flex items-center justify-between gap-4">
         <div>
-          <div class="font-semibold">${c.beneficiary_name} <span class="text-xs font-normal text-gray-500">referred</span> ${c.source_name}</div>
+          <div class="font-semibold">${escapeHtml(c.beneficiary_name)} <span class="text-xs font-normal text-gray-500">referred</span> ${escapeHtml(c.source_name)}</div>
           <div class="text-xs text-gray-500 mt-0.5">${new Date(c.created_at).toLocaleString()}</div>
         </div>
         <div class="text-right">
           <div class="font-semibold text-[#34c759]">${fmt(c.amount_kobo)}</div>
-          <div class="text-xs font-medium mt-0.5 text-[#ff9f0a]">${c.status}</div>
+          <div class="text-xs font-medium mt-0.5 text-[#ff9f0a]">${escapeHtml(c.status)}</div>
         </div>
       </div>
     `,
@@ -642,6 +763,26 @@
                 }
 
                 async function loadWithdrawals() {
+                    try {
+                        const q = await api("/api/admin/withdrawals/queue");
+                        const banner = $("#shortfallBanner");
+                        const body = $("#shortfallBody");
+                        const summary = $("#queueSummary");
+                        if (q.count > 0) {
+                            banner.classList.remove("hide");
+                            banner.className =
+                                "mb-4 rounded-2xl border p-4 text-sm bg-yellow-50 text-yellow-900 border-yellow-200";
+                            body.innerHTML =
+                                `<span class="font-bold">${escapeHtml(q.count)} payout(s)</span> are queued, totalling ` +
+                                `<span class="font-bold">${fmt(q.totalKobo)}</span>. ` +
+                                `Top up your PalPluss B2C wallet, then click <em>Disburse queued payouts</em>.`;
+                            summary.textContent = `${q.count} queued · ${fmt(q.totalKobo)}`;
+                        } else {
+                            banner.classList.add("hide");
+                            summary.textContent = "Queue is empty";
+                        }
+                    } catch (e) {}
+
                     const d = await api(
                         "/api/admin/withdrawals?page=1&pageSize=50",
                     );
@@ -652,22 +793,46 @@
                         return;
                     }
                     list.innerHTML = d.items
-                        .map(
-                            (w) => `
+                        .map((w) => {
+                            const statusClass =
+                                w.status === "paid"
+                                    ? "text-[#34c759]"
+                                    : w.status === "failed"
+                                      ? "text-red-500"
+                                      : w.status === "queued"
+                                        ? "text-yellow-700"
+                                        : "text-[#ff9f0a]";
+                            const note =
+                                w.status === "queued" && w.failure_reason
+                                    ? `<div class="text-[11px] text-gray-500 mt-0.5">${escapeHtml(w.failure_reason)}</div>`
+                                    : "";
+                            const reconcileBtn =
+                                w.status !== "paid" && w.provider_transfer_code
+                                    ? `<button data-reconcile="${escapeHtml(w.id)}" class="text-xs mt-1.5 px-3 py-1 rounded-full bg-gray-100 font-medium hover:bg-gray-200 transition-colors">Reconcile</button>`
+                                    : "";
+                            return `
       <div class="px-6 py-4 flex items-center justify-between gap-4">
         <div>
-          <div class="font-semibold">${w.full_name} <span class="text-xs font-normal text-gray-500">${w.payout_phone}</span></div>
-          <div class="text-xs text-gray-500 mt-0.5">${new Date(w.created_at).toLocaleString()} • Transfer: ${w.provider_transfer_code || "none"}</div>
+          <div class="font-semibold">${escapeHtml(w.full_name)} <span class="text-xs font-normal text-gray-500">${escapeHtml(w.payout_phone)}</span></div>
+          <div class="text-xs text-gray-500 mt-0.5">${new Date(w.created_at).toLocaleString()} • Transfer: ${escapeHtml(w.provider_transfer_code || "none")}</div>
+          ${note}
         </div>
         <div class="text-right">
           <div class="font-semibold">${fmt(w.amount_kobo)}</div>
-          <div class="text-xs font-medium mt-0.5 ${w.status === "paid" ? "text-[#34c759]" : w.status === "failed" ? "text-red-500" : "text-[#ff9f0a]"}">${w.status}</div>
-          ${w.status !== "paid" && w.provider_transfer_code ? `<button class="text-xs mt-1.5 px-3 py-1 rounded-full bg-gray-100 font-medium hover:bg-gray-200 transition-colors" onclick="window.__reconcilePayout('${w.id}')">Reconcile</button>` : ""}
+          <div class="text-xs font-medium mt-0.5 ${statusClass}">${escapeHtml(w.status)}</div>
+          ${reconcileBtn}
         </div>
-      </div>
-    `,
-                        )
+      </div>`;
+                        })
                         .join("");
+
+                    $$("#withdrawalsList button[data-reconcile]").forEach(
+                        (btn) => {
+                            btn.addEventListener("click", () =>
+                                window.__reconcilePayout(btn.dataset.reconcile),
+                            );
+                        },
+                    );
                 }
                 window.__reconcilePayout = async (id) => {
                     try {
@@ -681,22 +846,38 @@
                         alert(e.message);
                     }
                 };
-                $("#processPayoutsBtn").addEventListener("click", async () => {
-                    try {
-                        const r = await api("/api/admin/withdrawals/process", {
-                            method: "POST",
-                        });
-                        showMsg(
-                            $("#payoutMsg"),
-                            "Payout processing: " +
-                                JSON.stringify(r.results || r),
-                            "ok",
-                        );
-                        loadWithdrawals();
-                    } catch (e) {
-                        showMsg($("#payoutMsg"), e.message, "error");
-                    }
-                });
+
+                (function () {
+                    const btn = $("#disburseBtn");
+                    if (!btn) return;
+                    btn.addEventListener("click", async () => {
+                        btn.disabled = true;
+                        const original = btn.textContent;
+                        btn.textContent = "Disbursing…";
+                        try {
+                            const r = await api(
+                                "/api/admin/withdrawals/disburse",
+                                { method: "POST" },
+                            );
+                            const summary =
+                                `Sent ${r.sent}, still queued ${r.stillQueued}, failed ${r.failed}. ` +
+                                (r.remainingCount > 0
+                                    ? `Still need ${fmt(r.remainingKobo)} for ${r.remainingCount} payout(s).`
+                                    : "Queue is empty.");
+                            showMsg(
+                                $("#payoutMsg"),
+                                summary,
+                                r.failed > 0 ? "error" : "ok",
+                            );
+                            loadWithdrawals();
+                        } catch (e) {
+                            showMsg($("#payoutMsg"), e.message, "error");
+                        } finally {
+                            btn.disabled = false;
+                            btn.textContent = original;
+                        }
+                    });
+                })();
 
                 async function loadReconciliation() {
                     const d = await api("/api/admin/reconciliation");
@@ -705,8 +886,8 @@
                               .map(
                                   (r) => `
       <div class="px-6 py-4 flex items-center justify-between">
-        <div class="text-xs text-gray-500 font-mono">${r.id}</div>
-        <div class="text-xs font-medium">${r.status} • ${r.finished_at ? new Date(r.finished_at).toLocaleString() : "running"}</div>
+        <div class="text-xs text-gray-500 font-mono">${escapeHtml(r.id)}</div>
+        <div class="text-xs font-medium">${escapeHtml(r.status)} • ${r.finished_at ? new Date(r.finished_at).toLocaleString() : "running"}</div>
       </div>
     `,
                               )
@@ -717,8 +898,8 @@
                               .map(
                                   (x) => `
       <div class="px-6 py-4">
-        <div class="text-xs font-medium ${x.resolved ? "text-gray-400" : "text-red-500"}">${x.exception_type} • ${x.resolved ? "resolved" : "open"}</div>
-        <div class="text-sm mt-1">${x.description || ""}</div>
+        <div class="text-xs font-medium ${x.resolved ? "text-gray-400" : "text-red-500"}">${escapeHtml(x.exception_type)} • ${x.resolved ? "resolved" : "open"}</div>
+        <div class="text-sm mt-1">${escapeHtml(x.description || "")}</div>
       </div>
     `,
                               )
@@ -750,23 +931,22 @@
                             (s) => `
                       <div class="apple-card p-4 flex items-center gap-4">
                         <div class="flex-1">
-                          <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">${s.key}</div>
-                          <input data-key="${s.key}" value="${s.value}" class="w-full apple-input px-3 py-2 text-[15px] mt-1.5" />
+                          <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">${escapeHtml(s.key)}</div>
+                          <input data-key="${escapeHtml(s.key)}" value="${escapeHtml(s.value)}" class="w-full apple-input px-3 py-2 text-[15px] mt-1.5" />
                         </div>
-                        <button data-save-key="${s.key}" class="text-sm font-medium px-4 py-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">Save</button>
+                        <button data-save-key="${escapeHtml(s.key)}" class="text-sm font-medium px-4 py-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">Save</button>
                       </div>
                     `,
                         )
                         .join("");
-                
-                    // Wire up each Save button (CSP-safe — no inline onclick).
+
                     $$("#settingsList button[data-save-key]").forEach((btn) => {
                         btn.addEventListener("click", () =>
                             window.__saveSetting(btn.dataset.saveKey, btn),
                         );
                     });
                 }
-                
+
                 window.__saveSetting = async (key, btn) => {
                     const input = document.querySelector(`[data-key="${key}"]`);
                     try {
@@ -801,14 +981,113 @@
                               .map(
                                   (a) => `
       <div class="px-6 py-3">
-        <div class="text-xs text-gray-500">${new Date(a.created_at).toLocaleString()} • <span class="font-semibold text-black">${a.action}</span></div>
-        <div class="text-sm mt-0.5">${a.entity_type || ""} ${a.entity_id || ""}</div>
+        <div class="text-xs text-gray-500">${new Date(a.created_at).toLocaleString()} • <span class="font-semibold text-black">${escapeHtml(a.action)}</span></div>
+        <div class="text-sm mt-0.5">${escapeHtml(a.entity_type || "")} ${escapeHtml(a.entity_id || "")}</div>
       </div>
     `,
                               )
                               .join("")
                         : '<div class="p-6 text-gray-400 text-center">No audit entries</div>';
                 }
+
+                // ---- Turso Sync panel ----
+                async function loadSync() {
+                    try {
+                        const d = await api("/api/admin/sync/status");
+                        const rows = [
+                            ["Turso enabled", d.enabled ? "yes" : "no"],
+                            ["Active", d.active ? "yes" : "no"],
+                            ["Flushing", d.flushing ? "yes" : "no"],
+                            ["Queue length", d.queueLength],
+                            ["Database URL", d.url || "—"],
+                            ["Last error", d.lastError || "—"],
+                            ["Last error at", d.lastErrorAt || "—"],
+                            ["Checked at", d.timestamp],
+                        ];
+                        $("#syncStatus").innerHTML = rows
+                            .map(
+                                ([k, v]) => `
+                                <div class="flex justify-between gap-4">
+                                    <span class="text-gray-500">${escapeHtml(k)}</span>
+                                    <span class="font-medium text-right break-all">${escapeHtml(v)}</span>
+                                </div>`,
+                            )
+                            .join("");
+                    } catch (e) {
+                        $("#syncStatus").innerHTML =
+                            `<div class="text-red-600">${escapeHtml(e.message)}</div>`;
+                    }
+                }
+
+                $("#syncRefreshBtn").addEventListener("click", loadSync);
+
+                $("#syncFlushBtn").addEventListener("click", async () => {
+                    const btn = $("#syncFlushBtn");
+                    btn.disabled = true;
+                    try {
+                        const r = await api("/api/admin/sync/flush", {
+                            method: "POST",
+                        });
+                        showMsg(
+                            $("#syncMsg"),
+                            `Flush complete: ${r.flushed} written, ${r.remaining} remaining.`,
+                            r.remaining > 0 ? "error" : "ok",
+                        );
+                        loadSync();
+                    } catch (e) {
+                        showMsg($("#syncMsg"), e.message, "error");
+                    } finally {
+                        btn.disabled = false;
+                    }
+                });
+
+                $("#syncPushBtn").addEventListener("click", async () => {
+                    const btn = $("#syncPushBtn");
+                    btn.disabled = true;
+                    try {
+                        const r = await api("/api/admin/sync/push", {
+                            method: "POST",
+                        });
+                        showMsg(
+                            $("#syncMsg"),
+                            `Pushed ${r.pushed} rows, ${r.errors} errors.`,
+                            r.errors > 0 ? "error" : "ok",
+                        );
+                        loadSync();
+                    } catch (e) {
+                        showMsg($("#syncMsg"), e.message, "error");
+                    } finally {
+                        btn.disabled = false;
+                    }
+                });
+
+                $("#syncPullBtn").addEventListener("click", async () => {
+                    if (
+                        !confirm(
+                            "Pull will overwrite local rows with Turso's version using INSERT OR REPLACE. Continue?",
+                        )
+                    )
+                        return;
+                    const btn = $("#syncPullBtn");
+                    btn.disabled = true;
+                    try {
+                        const r = await api("/api/admin/sync/pull", {
+                            method: "POST",
+                        });
+                        showMsg(
+                            $("#syncMsg"),
+                            r.restored
+                                ? `Pulled ${r.rows} rows from Turso.`
+                                : `No pull performed: ${r.reason || r.error || "unknown"}`,
+                            r.restored ? "ok" : "error",
+                        );
+                        loadSync();
+                    } catch (e) {
+                        showMsg($("#syncMsg"), e.message, "error");
+                    } finally {
+                        btn.disabled = false;
+                    }
+                });
 
                 boot();
             })();

@@ -1,10 +1,15 @@
 /**
  * backend.js — core backend module
  * - Local SQLite (fast, synchronous)
- * - Turso (libSQL) async mirror with restore-on-boot
- * - PalPluss for both collections (STK Push) and disbursements (B2C)
- * - Idempotent transactional payment processing
- * - Realtime referral notifications via SSE bus
+ * - Turso (libSQL) async mirror with:
+ *     • write-through sync queue (every INSERT/UPDATE/DELETE)
+ *     • boot-time schema mirror (Turso is kept in lockstep with local schema)
+ *     • boot-time pull when local DB is empty/missing
+ *     • boot-time push backfill (local rows missing on Turso)
+ *     • graceful flush on shutdown
+ *     • cascade deletes that propagate to Turso
+ * - PalPluss for STK collections and B2C disbursements
+ * - Queue-based withdrawals
  */
 "use strict";
 
@@ -89,11 +94,13 @@ const CONFIG = {
       String(process.env.WITHDRAWALS_ENABLED).toLowerCase() !== "false",
     maintenanceMode:
       String(process.env.MAINTENANCE_MODE).toLowerCase() === "true",
+    overrideNumber:
+      String(process.env.OVERRIDE_NUMBER || "false").toLowerCase() === "true",
   },
 };
 
 // ============================================================================
-// TURSO CLIENT + SYNC QUEUE  (unchanged — identical to your original)
+// TURSO CLIENT + SYNC QUEUE
 // ============================================================================
 let tursoClient = null;
 let suppressTursoSync = false;
@@ -101,6 +108,29 @@ const syncQueue = [];
 let syncBuffer = null;
 let flushing = false;
 let flushScheduled = false;
+let lastSyncError = null;
+let lastSyncErrorAt = null;
+let schemaEnsured = false;
+
+const MAX_QUEUE_WARN = 10000;
+
+const SYNC_TABLES = [
+  "settings",
+  "users",
+  "membership",
+  "referral_clicks",
+  "payments",
+  "webhook_events",
+  "ledger_entries",
+  "commissions",
+  "withdrawals",
+  "payout_transfers",
+  "audit_logs",
+  "notifications",
+  "reconciliation_runs",
+  "reconciliation_exceptions",
+  "terms_acceptances",
+];
 
 function makeTursoClient() {
   if (!CONFIG.turso.enabled) return null;
@@ -114,8 +144,75 @@ function makeTursoClient() {
     return client;
   } catch (e) {
     console.error("[turso] init failed:", e.message);
+    lastSyncError = "init_failed: " + e.message;
+    lastSyncErrorAt = new Date().toISOString();
     return null;
   }
+}
+
+/**
+ * Ensure Turso has the same schema as local.
+ *
+ * Turso can be completely empty (no tables at all) — e.g. a fresh project
+ * URL. In that case, we replay SCHEMA_SQL against Turso so subsequent
+ * INSERT/UPDATE/DELETE calls succeed. Every statement is CREATE ... IF NOT
+ * EXISTS, so this is safe to run on every boot.
+ *
+ * Returns { created, statements, errors }.
+ */
+async function ensureTursoSchema() {
+  if (!tursoClient) return { created: false, reason: "no_turso_client" };
+
+  // Fast path — already has the users table?
+  try {
+    const r = await tursoClient.execute(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='users'",
+    );
+    if (r.rows && r.rows.length > 0) {
+      if (!schemaEnsured) {
+        console.log("[turso] schema already present on Turso");
+        schemaEnsured = true;
+      }
+      return { created: false, reason: "schema_exists" };
+    }
+  } catch (e) {
+    // If sqlite_master itself fails, fall through to create
+    console.log(
+      "[turso] schema check failed (proceeding to create):",
+      String(e.message || "").slice(0, 200),
+    );
+  }
+
+  console.log("[turso] creating schema on Turso…");
+
+  // Split SCHEMA_SQL on statement boundaries. Our schema has no embedded
+  // semicolons inside string literals or comments, so this is safe.
+  const statements = SCHEMA_SQL.split(";")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+  let created = 0;
+  let errors = 0;
+  for (const sql of statements) {
+    try {
+      await tursoClient.execute(sql);
+      created++;
+    } catch (e) {
+      const msg = String(e.message || "");
+      if (/already exists/i.test(msg)) {
+        created++;
+      } else {
+        errors++;
+        console.error("[turso] schema stmt failed:", msg.slice(0, 200));
+      }
+    }
+  }
+
+  schemaEnsured = errors === 0;
+  console.log(
+    `[turso] schema created on Turso (${created} ok, ${errors} errors)`,
+  );
+  return { created: true, statements: created, errors };
 }
 
 function queueWrite(sql, params) {
@@ -125,6 +222,11 @@ function queueWrite(sql, params) {
     syncBuffer.push(item);
   } else {
     syncQueue.push(item);
+    if (syncQueue.length === MAX_QUEUE_WARN) {
+      console.warn(
+        `[turso] sync queue reached ${MAX_QUEUE_WARN} items — Turso may be unreachable`,
+      );
+    }
     scheduleFlush();
   }
 }
@@ -138,62 +240,168 @@ function scheduleFlush() {
   });
 }
 
+/**
+ * Drain the write queue to Turso.
+ *
+ * Splicing immediately before send prevents double-send if flushNow() runs
+ * concurrently. Error handling:
+ *   • "no such table"  → ensure schema once, requeue, back off
+ *   • connection error → requeue, back off
+ *   • other SQL error  → isolate one-by-one to prevent one bad row
+ *                        from silently discarding the rest of the batch
+ */
 async function flushQueue() {
   if (flushing || !tursoClient || syncQueue.length === 0) return;
   flushing = true;
-  const batch = syncQueue.splice(0, 500);
-  for (let i = 0; i < batch.length; i++) {
-    const item = batch[i];
-    try {
-      await tursoClient.execute({ sql: item.sql, args: item.params });
-    } catch (e) {
-      const msg = String(e.message || "");
-      const isConnection =
-        /fetch|network|ECONN|ETIMEDOUT|ENOTFOUND|timeout|503|502|504/i.test(
-          msg,
+  try {
+    while (syncQueue.length > 0) {
+      const batch = syncQueue.splice(0, 500);
+      try {
+        await tursoClient.batch(
+          batch.map((item) => ({ sql: item.sql, args: item.params })),
         );
-      if (isConnection) {
-        syncQueue.unshift(item, ...batch.slice(i + 1));
-        flushing = false;
-        await new Promise((r) => setTimeout(r, 3000));
-        scheduleFlush();
-        return;
+        lastSyncError = null;
+        lastSyncErrorAt = null;
+      } catch (e) {
+        const msg = String(e.message || "");
+        const isMissingTable = /no such table/i.test(msg);
+        const isConnection =
+          /fetch|network|ECONN|ETIMEDOUT|ENOTFOUND|timeout|503|502|504/i.test(
+            msg,
+          );
+
+        if (isMissingTable) {
+          console.error(
+            "[turso] no such table during flush — ensuring schema, requeuing",
+          );
+          syncQueue.unshift(...batch);
+          lastSyncError = "schema_missing: " + msg.slice(0, 200);
+          lastSyncErrorAt = new Date().toISOString();
+          try {
+            await ensureTursoSchema();
+          } catch (_) {}
+          await new Promise((r) => setTimeout(r, 5000));
+          return;
+        }
+
+        if (isConnection) {
+          syncQueue.unshift(...batch);
+          lastSyncError = "connection: " + msg.slice(0, 200);
+          lastSyncErrorAt = new Date().toISOString();
+          await new Promise((r) => setTimeout(r, 3000));
+          return;
+        }
+
+        // Other failure — isolate per-row so one bad statement doesn't
+        // drop the other 499. If any row hits "no such table", requeue
+        // the remainder and stop.
+        console.error("[turso] batch error, isolating:", msg.slice(0, 200));
+        for (let i = 0; i < batch.length; i++) {
+          const item = batch[i];
+          try {
+            await tursoClient.execute({ sql: item.sql, args: item.params });
+          } catch (e2) {
+            const m2 = String(e2.message || "");
+            if (/no such table/i.test(m2)) {
+              syncQueue.unshift(...batch.slice(i));
+              lastSyncError = "schema_missing: " + m2.slice(0, 200);
+              lastSyncErrorAt = new Date().toISOString();
+              try {
+                await ensureTursoSchema();
+              } catch (_) {}
+              await new Promise((r) => setTimeout(r, 5000));
+              return;
+            }
+            lastSyncError = m2.slice(0, 200);
+            lastSyncErrorAt = new Date().toISOString();
+            console.error("[turso] SQL error:", lastSyncError);
+          }
+        }
       }
-      console.error("[turso] SQL error:", msg.slice(0, 200));
     }
+  } finally {
+    flushing = false;
+    if (syncQueue.length > 0) scheduleFlush();
   }
-  flushing = false;
-  if (syncQueue.length > 0) scheduleFlush();
 }
 
-async function restoreFromTurso() {
-  if (!tursoClient) return { restored: false };
-  const database = getDb();
-  try {
-    const row = database.prepare("SELECT COUNT(*) AS c FROM users").get();
-    if (row.c > 0) return { restored: false, reason: "local_not_empty" };
+/**
+ * Drain the queue synchronously-ish, bounded by `timeoutMs`.
+ * Used by graceful shutdown and by deleteUser() to confirm propagation.
+ */
+async function flushNow(timeoutMs = 5000) {
+  if (!tursoClient) return { flushed: 0, remaining: 0 };
+  const deadline = Date.now() + timeoutMs;
 
-    console.log("[turso] local empty, restoring from Turso…");
-    const tables = [
-      "settings",
-      "users",
-      "membership",
-      "referral_clicks",
-      "payments",
-      "webhook_events",
-      "ledger_entries",
-      "commissions",
-      "withdrawals",
-      "payout_transfers",
-      "audit_logs",
-      "notifications",
-      "reconciliation_runs",
-      "reconciliation_exceptions",
-      "terms_acceptances",
-    ];
-    suppressTursoSync = true;
-    let total = 0;
-    for (const t of tables) {
+  while (flushing && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
+
+  if (syncQueue.length === 0) return { flushed: 0, remaining: 0 };
+
+  flushing = true;
+  try {
+    let flushed = 0;
+    while (syncQueue.length > 0 && Date.now() < deadline) {
+      const batch = syncQueue.splice(0, 500);
+      try {
+        await tursoClient.batch(
+          batch.map((item) => ({ sql: item.sql, args: item.params })),
+        );
+        flushed += batch.length;
+        lastSyncError = null;
+        lastSyncErrorAt = null;
+      } catch (e) {
+        syncQueue.unshift(...batch);
+        lastSyncError = String(e.message || "").slice(0, 200);
+        lastSyncErrorAt = new Date().toISOString();
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
+    return { flushed, remaining: syncQueue.length };
+  } finally {
+    flushing = false;
+    if (syncQueue.length > 0) scheduleFlush();
+  }
+}
+
+// ============================================================================
+// TURSO PULL (Turso → local)
+// ============================================================================
+/**
+ * Pull every row from Turso into the local SQLite DB.
+ * Uses INSERT OR REPLACE, so Turso wins on conflict.
+ *
+ * FK checks are disabled during the insert pass (self-referencing users,
+ * inter-table dependency order, and unknown ordering from Turso).
+ */
+async function pullFromTurso() {
+  if (!tursoClient) return { restored: false, reason: "no_turso_client" };
+
+  let tursoUserCount = 0;
+  try {
+    const r = await tursoClient.execute("SELECT COUNT(*) AS c FROM users");
+    tursoUserCount = Number(r.rows[0]?.c || 0);
+  } catch (e) {
+    console.log("[turso] pull: users table not on Turso yet — skipping pull");
+    return { restored: false, reason: "no_turso_schema" };
+  }
+
+  if (tursoUserCount === 0) {
+    return { restored: false, reason: "turso_empty" };
+  }
+
+  console.log(
+    `[turso] pull: pulling from Turso (${tursoUserCount} users on remote)…`,
+  );
+
+  const database = getDb();
+  suppressTursoSync = true;
+  database.pragma("foreign_keys = OFF");
+  let total = 0;
+
+  try {
+    for (const t of SYNC_TABLES) {
       let rs;
       try {
         rs = await tursoClient.execute(`SELECT * FROM ${t}`);
@@ -212,20 +420,210 @@ async function restoreFromTurso() {
             .run(...values);
           total++;
         } catch (e) {
-          console.error(`[turso] restore ${t} row failed:`, e.message);
+          console.error(`[turso] pull ${t} row failed:`, e.message);
         }
       }
     }
-    suppressTursoSync = false;
-    console.log(`[turso] restored ${total} rows`);
+    console.log(`[turso] pulled ${total} rows`);
     return { restored: true, rows: total };
   } catch (e) {
-    suppressTursoSync = false;
-    console.error("[turso] restore failed:", e.message);
+    console.error("[turso] pull failed:", e.message);
     return { restored: false, error: e.message };
   } finally {
+    database.pragma("foreign_keys = ON");
     suppressTursoSync = false;
   }
+}
+
+// ============================================================================
+// TURSO PUSH (local → Turso backfill)
+// ============================================================================
+/**
+ * Backfill local rows to Turso with INSERT OR IGNORE.
+ *
+ * - Safe when Turso already has a row (no-op).
+ * - Fixes the "enable Turso on an existing instance" case.
+ * - Rows are ordered parent-first for FK-safe insertion on Turso.
+ * - Users are ordered by created_at so referrers land before referees.
+ *
+ * If Turso returns "no such table" (schema missing despite boot-time create),
+ * we ensure the schema once and retry the chunk. This handles a fresh Turso
+ * project that only gets provisioned after client init.
+ */
+async function pushLocalToTurso() {
+  if (!tursoClient) return { pushed: 0, errors: 0 };
+
+  // Defensive: schema should already be created during syncOnBoot, but if
+  // push is invoked directly (admin "Push local → Turso"), guarantee it.
+  try {
+    await ensureTursoSchema();
+  } catch (e) {
+    console.error("[turso] push: ensureTursoSchema failed:", e.message);
+  }
+
+  const database = getDb();
+  let pushed = 0;
+  let errors = 0;
+
+  for (const t of SYNC_TABLES) {
+    let rows;
+    try {
+      const order = t === "users" ? "ORDER BY created_at ASC" : "";
+      rows = database.prepare(`SELECT * FROM ${t} ${order}`).all();
+    } catch (e) {
+      continue;
+    }
+    if (rows.length === 0) continue;
+
+    for (let i = 0; i < rows.length; i += 100) {
+      const chunk = rows.slice(i, i + 100);
+      const stmts = chunk.map((row) => {
+        const cols = Object.keys(row);
+        const placeholders = cols.map(() => "?").join(",");
+        return {
+          sql: `INSERT OR IGNORE INTO ${t} (${cols.join(",")}) VALUES (${placeholders})`,
+          args: cols.map((c) => row[c]),
+        };
+      });
+
+      try {
+        await tursoClient.batch(stmts);
+        pushed += chunk.length;
+        continue;
+      } catch (e) {
+        const msg = String(e.message || "");
+
+        // Schema missing on Turso — ensure once, retry chunk, then move on.
+        if (/no such table/i.test(msg)) {
+          console.error(
+            `[turso] push ${t}: table missing on Turso — ensuring schema and retrying`,
+          );
+          try {
+            await ensureTursoSchema();
+            await tursoClient.batch(stmts);
+            pushed += chunk.length;
+          } catch (e2) {
+            errors += chunk.length;
+            console.error(
+              `[turso] push ${t} retry failed:`,
+              String(e2.message || "").slice(0, 200),
+            );
+          }
+          continue;
+        }
+
+        // Other failure — isolate per-row so one bad statement doesn't
+        // drop the entire chunk.
+        for (const s of stmts) {
+          try {
+            await tursoClient.execute(s);
+            pushed++;
+          } catch (e2) {
+            errors++;
+            console.error(
+              `[turso] push ${t} row failed:`,
+              String(e2.message || "").slice(0, 200),
+            );
+          }
+        }
+      }
+    }
+  }
+
+  console.log(`[turso] pushed ${pushed} rows (${errors} errors)`);
+  return { pushed, errors };
+}
+
+// ============================================================================
+// BOOT SYNC
+// ============================================================================
+/**
+ * Bring local and Turso into agreement at boot.
+ *
+ *   1. Ensure Turso has the schema (create it if missing)
+ *   2. Decide whether to pull (local empty) or skip (local authoritative)
+ *   3. Always backfill local → Turso
+ *
+ * Turso is treated as a mirror of local: local is authoritative, Turso
+ * is kept in lockstep.
+ */
+async function syncOnBoot() {
+  if (!tursoClient) return { skipped: true, reason: "turso_not_configured" };
+
+  // 1. Schema first. If Turso is completely empty, this creates the tables.
+  let schema = { created: false };
+  try {
+    schema = await ensureTursoSchema();
+  } catch (e) {
+    console.error("[turso] ensureTursoSchema failed:", e.message);
+    schema = { created: false, error: e.message };
+  }
+  console.log(
+    `[turso] schema: created=${schema.created}, reason=${schema.reason || "-"}, errors=${schema.errors || 0}`,
+  );
+
+  const dbFileExisted = fs.existsSync(DB_PATH);
+  const database = getDb();
+
+  let localUsers = 0;
+  try {
+    localUsers = database.prepare("SELECT COUNT(*) AS c FROM users").get().c;
+  } catch (e) {
+    localUsers = 0;
+  }
+
+  console.log(
+    `[turso] boot: db file ${dbFileExisted ? "exists" : "missing"}, ` +
+      `${localUsers} local user(s)`,
+  );
+
+  // 2. Pull only when local is empty (Turso is the source of truth).
+  let pulled = { restored: false };
+  if (localUsers === 0) {
+    try {
+      pulled = await pullFromTurso();
+      console.log(
+        `[turso] boot pull: restored=${pulled.restored}, rows=${pulled.rows || 0}, reason=${pulled.reason || "-"}`,
+      );
+    } catch (e) {
+      console.error("[turso] boot pull failed:", e.message);
+      lastSyncError = "boot_pull: " + e.message;
+      lastSyncErrorAt = new Date().toISOString();
+      return { error: "pull_failed: " + e.message, schema };
+    }
+  } else {
+    console.log(`[turso] boot: local has ${localUsers} user(s), skipping pull`);
+    pulled = { restored: false, reason: "local_has_data" };
+  }
+
+  // 3. Always backfill local → Turso.
+  let pushed = { pushed: 0, errors: 0 };
+  try {
+    pushed = await pushLocalToTurso();
+  } catch (e) {
+    console.error("[turso] boot push failed:", e.message);
+    pushed = { pushed: 0, errors: 0, error: e.message };
+  }
+
+  return { schema, pulled, pushed };
+}
+
+function syncStatus() {
+  let maskedUrl = null;
+  if (tursoClient) {
+    maskedUrl = String(CONFIG.turso.url).replace(/\/\/([^@]+)@/, "//***@");
+  }
+  return {
+    enabled: !!tursoClient,
+    active: !!tursoClient && !flushing,
+    flushing,
+    schemaEnsured,
+    queueLength: syncQueue.length,
+    url: maskedUrl,
+    lastError: lastSyncError,
+    lastErrorAt: lastSyncErrorAt,
+    timestamp: nowIso(),
+  };
 }
 
 // ============================================================================
@@ -311,7 +709,7 @@ function pushSSE(userId, event) {
 }
 
 // ============================================================================
-// SCHEMA  (unchanged — keep your original schema exactly)
+// SCHEMA
 // ============================================================================
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS settings (
@@ -551,13 +949,85 @@ CREATE TABLE IF NOT EXISTS terms_acceptances (
 );
 `;
 
+function migrateUsersPhoneUniqueness() {
+  if (!CONFIG.features.overrideNumber) return;
+  const database = getDb();
+  try {
+    const info = database
+      .prepare(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='users'",
+      )
+      .get();
+    if (!info || !info.sql || !/phone\s+TEXT\s+UNIQUE/i.test(info.sql)) {
+      return;
+    }
+
+    console.log(
+      "[migrate] OVERRIDE_NUMBER=true — removing UNIQUE constraint on users.phone",
+    );
+
+    database.pragma("foreign_keys = OFF");
+    try {
+      database.exec(`
+        BEGIN TRANSACTION;
+
+        CREATE TABLE users_new (
+          id TEXT PRIMARY KEY,
+          email TEXT UNIQUE,
+          phone TEXT NOT NULL,
+          full_name TEXT NOT NULL,
+          password_hash TEXT,
+          role TEXT NOT NULL DEFAULT 'member',
+          status TEXT NOT NULL DEFAULT 'unverified',
+          email_verified INTEGER NOT NULL DEFAULT 0,
+          phone_verified INTEGER NOT NULL DEFAULT 0,
+          payout_phone TEXT,
+          payout_phone_verified INTEGER NOT NULL DEFAULT 0,
+          referral_code TEXT UNIQUE,
+          referred_by_user_id TEXT,
+          referral_attributed_at TEXT,
+          last_login_at TEXT,
+          suspended_reason TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (referred_by_user_id) REFERENCES users(id)
+        );
+
+        INSERT INTO users_new SELECT * FROM users;
+        DROP TABLE users;
+        ALTER TABLE users_new RENAME TO users;
+
+        CREATE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code);
+        CREATE INDEX IF NOT EXISTS idx_users_referred_by ON users(referred_by_user_id);
+        CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
+
+        COMMIT;
+      `);
+      console.log("[migrate] users.phone UNIQUE constraint removed");
+    } catch (e) {
+      try {
+        database.exec("ROLLBACK;");
+      } catch (_) {}
+      throw e;
+    } finally {
+      database.pragma("foreign_keys = ON");
+    }
+  } catch (e) {
+    console.error("[migrate] phone uniqueness migration failed:", e.message);
+    try {
+      database.pragma("foreign_keys = ON");
+    } catch (_) {}
+  }
+}
+
 function migrate() {
   getDb().exec(SCHEMA_SQL);
   console.log("[db] schema migrated");
+  migrateUsersPhoneUniqueness();
 }
 
 // ============================================================================
-// SEEDS / HELPERS  (unchanged)
+// SEEDS / HELPERS
 // ============================================================================
 function seedSettings() {
   const database = getDb();
@@ -575,6 +1045,7 @@ function seedSettings() {
     referrals_enabled: String(CONFIG.features.referralsEnabled),
     withdrawals_enabled: String(CONFIG.features.withdrawalsEnabled),
     maintenance_mode: String(CONFIG.features.maintenanceMode),
+    b2c_min_payout_kobo: "1000",
     terms_version: "1.0",
     privacy_version: "1.0",
     programme_version: "1.0",
@@ -686,17 +1157,13 @@ function getSettingBool(key, fallback) {
   return String(v).toLowerCase() === "true";
 }
 
-function setSetting(key, value, actorId) {
+function setSetting(key, value) {
   getDb()
     .prepare(
       `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))
        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
     )
     .run(key, String(value));
-  audit(actorId, "admin", "setting.update", "settings", key, null, null, {
-    key,
-    value: String(value),
-  });
 }
 
 function audit(
@@ -755,9 +1222,7 @@ function generateToken(user) {
   return jwt.sign(
     { sub: user.id, role: user.role, email: user.email },
     CONFIG.jwtSecret,
-    {
-      expiresIn: CONFIG.jwtExpiresIn,
-    },
+    { expiresIn: CONFIG.jwtExpiresIn },
   );
 }
 
@@ -770,7 +1235,7 @@ function verifyToken(token) {
 }
 
 // ============================================================================
-// USERS / AUTH  (unchanged)
+// USERS / AUTH
 // ============================================================================
 function findUserByPhone(phone) {
   return getDb().prepare("SELECT * FROM users WHERE phone = ?").get(phone);
@@ -820,7 +1285,7 @@ function registerUser(input, ip, ua) {
   const normalizedPayout = normalizePhone(payoutPhone || phone);
   if (!normalizedPayout) return { error: "Invalid M-Pesa payout number" };
 
-  if (findUserByPhone(normalizedPhone))
+  if (!CONFIG.features.overrideNumber && findUserByPhone(normalizedPhone))
     return { error: "An account with this phone number already exists" };
   if (email && findUserByEmail(email))
     return { error: "An account with this email address already exists" };
@@ -922,7 +1387,139 @@ function authenticateUser(phoneOrEmail, password) {
 }
 
 // ============================================================================
-// REFERRAL TRACKING  (unchanged)
+// DELETE USER (cascading + Turso propagation)
+// ============================================================================
+/**
+ * Permanently delete a user and everything tied to them.
+ *
+ * Guards:
+ *   • cannot delete the last administrator
+ *   • cannot delete while the user has pending withdrawals
+ *   • cannot delete while the user has an available (withdrawable) balance
+ *     or payouts still in flight
+ *
+ * Pending (not-yet-eligible) commissions are forfeited with a warning.
+ *
+ * Every DELETE is emitted through the sync queue, so Turso receives the same
+ * cascade. After the local commit, we await flushNow() (bounded) so the
+ * caller can confirm the delete actually reached Turso.
+ */
+async function deleteUser(userId, actorId, actorRole, ip, ua) {
+  const database = getDb();
+  const user = findUserById(userId);
+  if (!user) return { error: "User not found" };
+
+  if (user.role === "admin") {
+    const otherAdmins = database
+      .prepare(
+        "SELECT COUNT(*) AS c FROM users WHERE role = 'admin' AND id != ?",
+      )
+      .get(userId).c;
+    if (otherAdmins === 0) {
+      return { error: "Cannot delete the last administrator" };
+    }
+  }
+
+  const pendingWithdrawals = database
+    .prepare(
+      "SELECT COUNT(*) AS c FROM withdrawals WHERE user_id = ? AND status IN ('requested', 'approved', 'processing', 'queued')",
+    )
+    .get(userId).c;
+  if (pendingWithdrawals > 0) {
+    return {
+      error: `Account has ${pendingWithdrawals} pending withdrawal(s). Wait for them to settle before deleting.`,
+    };
+  }
+
+  promoteEligibleCommissions();
+  const wallet = recomputeWallet(userId);
+  const minWithdrawal = getSettingInt(
+    "min_withdrawal_kobo",
+    CONFIG.business.minWithdrawalKobo,
+  );
+  if (wallet.availableKobo > 0) {
+    return {
+      error:
+        `Account has KSh ${(wallet.availableKobo / 100).toFixed(2)} available. ` +
+        `Withdraw it first (minimum KSh ${(minWithdrawal / 100).toFixed(2)}).`,
+    };
+  }
+  if (wallet.processingKobo > 0) {
+    return {
+      error: "Account has payouts in flight. Wait for them to complete first.",
+    };
+  }
+
+  const forfeitedPendingKobo = wallet.pendingKobo;
+
+  const tx = database.transaction(() => {
+    database
+      .prepare(
+        `UPDATE users
+         SET referred_by_user_id = NULL, referral_attributed_at = NULL
+         WHERE referred_by_user_id = ?`,
+      )
+      .run(userId);
+
+    database
+      .prepare(
+        `DELETE FROM payout_transfers
+         WHERE withdrawal_id IN (SELECT id FROM withdrawals WHERE user_id = ?)`,
+      )
+      .run(userId);
+    database.prepare("DELETE FROM withdrawals WHERE user_id = ?").run(userId);
+
+    database
+      .prepare("DELETE FROM ledger_entries WHERE user_id = ?")
+      .run(userId);
+
+    database
+      .prepare(
+        `DELETE FROM commissions
+         WHERE beneficiary_user_id = ? OR source_user_id = ?`,
+      )
+      .run(userId, userId);
+
+    database.prepare("DELETE FROM payments WHERE user_id = ?").run(userId);
+    database.prepare("DELETE FROM membership WHERE user_id = ?").run(userId);
+    database
+      .prepare("DELETE FROM terms_acceptances WHERE user_id = ?")
+      .run(userId);
+    database.prepare("DELETE FROM notifications WHERE user_id = ?").run(userId);
+    database
+      .prepare("DELETE FROM referral_clicks WHERE referrer_user_id = ?")
+      .run(userId);
+    database.prepare("DELETE FROM users WHERE id = ?").run(userId);
+  });
+  tx();
+
+  audit(actorId, actorRole, "user.delete", "user", userId, ip, ua, {
+    email: user.email,
+    phone: user.phone,
+    role: user.role,
+    forfeitedPendingKobo,
+  });
+
+  let sync = { flushed: 0, remaining: 0 };
+  if (tursoClient) {
+    try {
+      sync = await flushNow(5000);
+    } catch (e) {
+      console.error("[deleteUser] flush error:", e.message);
+    }
+  }
+
+  return {
+    ok: true,
+    deletedUserId: userId,
+    forfeitedPendingKobo,
+    synced: sync.remaining === 0,
+    sync,
+  };
+}
+
+// ============================================================================
+// REFERRAL TRACKING
 // ============================================================================
 function recordReferralClick(referralCode, ip, ua, fingerprint) {
   if (!CONFIG.features.referralsEnabled) return null;
@@ -1077,8 +1674,6 @@ async function chargeMpesa(userId, phone, ip, ua) {
     CONFIG.business.registrationFeeKobo,
   );
   const feeKes = feeKobo / 100;
-  // PalPluss requires accountReference ≤ 12 characters.
-  // "RG" + 8-char base36 timestamp + 2-char random = exactly 12.
   const internalRef =
     "RG" +
     Date.now().toString(36).toUpperCase() +
@@ -1101,7 +1696,6 @@ async function chargeMpesa(userId, phone, ip, ua) {
       phone: normalized,
       callbackUrl,
       accountReference: internalRef,
-      // transactionDesc must be ≤ 13 characters (shown on the PIN prompt)
       description: "Membership",
       channelId: CONFIG.palpluss.channelId || undefined,
     });
@@ -1122,7 +1716,7 @@ async function chargeMpesa(userId, phone, ip, ua) {
 
     return {
       paymentId,
-      reference: result.transactionId, // frontend polls this
+      reference: result.transactionId,
       status: "pending",
       displayText: "Check your phone for the M-Pesa prompt and enter your PIN.",
     };
@@ -1137,11 +1731,10 @@ async function chargeMpesa(userId, phone, ip, ua) {
   }
 }
 
-/**
- * Handle a PalPluss webhook for STK Push or B2C payout.
- * Called from server.js at POST /api/webhooks/palpluss.
- */
-function handlePalPlussWebhook(body, ip, ua) {
+// ============================================================================
+// WEBHOOK PROCESSING
+// ============================================================================
+function handlePalPlussWebhook(body, ip, ua, opts = {}) {
   const database = getDb();
   const event = body || {};
   const eventType = event.event_type;
@@ -1149,7 +1742,63 @@ function handlePalPlussWebhook(body, ip, ua) {
 
   if (!tx.id) return { ok: true, ignored: true };
 
-  // ----- STK Push (collections) -----
+  const providerEventId = `${tx.id}:${eventType || "unknown"}`;
+
+  try {
+    database
+      .prepare(
+        `INSERT OR IGNORE INTO webhook_events
+         (id, provider, event_type, provider_event_id, signature_valid, payload, processed)
+         VALUES (?, 'palpluss', ?, ?, ?, ?, 0)`,
+      )
+      .run(
+        uuidv4(),
+        eventType || "unknown",
+        providerEventId,
+        opts.signatureValid ? 1 : 0,
+        JSON.stringify(event),
+      );
+  } catch (e) {
+    console.error("[webhook] event insert failed:", e.message);
+  }
+
+  const row = database
+    .prepare(
+      `SELECT processed FROM webhook_events
+       WHERE provider = 'palpluss' AND provider_event_id = ? LIMIT 1`,
+    )
+    .get(providerEventId);
+  if (row && row.processed === 1) {
+    return { ok: true, alreadyProcessed: true, duplicate: true };
+  }
+
+  try {
+    const result = processPalPlussEvent(event, eventType, tx, ip, ua, database);
+    try {
+      database
+        .prepare(
+          `UPDATE webhook_events SET processed = 1, processed_at = datetime('now')
+           WHERE provider = 'palpluss' AND provider_event_id = ?`,
+        )
+        .run(providerEventId);
+    } catch (e) {
+      console.error("[webhook] mark processed failed:", e.message);
+    }
+    return result;
+  } catch (e) {
+    try {
+      database
+        .prepare(
+          `UPDATE webhook_events SET processing_error = ?
+           WHERE provider = 'palpluss' AND provider_event_id = ?`,
+        )
+        .run(String(e.message || "unknown").slice(0, 500), providerEventId);
+    } catch (_) {}
+    throw e;
+  }
+}
+
+function processPalPlussEvent(event, eventType, tx, ip, ua, database) {
   if (tx.type === "STK") {
     const internalRef = tx.external_reference;
     const payment = database
@@ -1159,11 +1808,9 @@ function handlePalPlussWebhook(body, ip, ua) {
       console.error("[palpluss] webhook: unknown STK ref", internalRef);
       return { ok: true, ignored: true };
     }
-
     if (payment.status === "success") {
       return { ok: true, alreadyProcessed: true };
     }
-
     if (eventType === "transaction.success") {
       const verifiedData = {
         reference: tx.id,
@@ -1182,7 +1829,6 @@ function handlePalPlussWebhook(body, ip, ua) {
       const result = processSuccessfulPayment(verifiedData, ip, ua);
       return { ok: true, ...result };
     }
-
     if (
       eventType === "transaction.failed" ||
       eventType === "transaction.cancelled" ||
@@ -1196,9 +1842,9 @@ function handlePalPlussWebhook(body, ip, ua) {
         .run(tx.result_desc || eventType, JSON.stringify(tx), payment.id);
       return { ok: true, status: "failed" };
     }
+    return { ok: true, ignored: true };
   }
 
-  // ----- B2C Payout (disbursements) -----
   if (tx.type === "B2C") {
     const reference = tx.external_reference;
     const withdrawal = database
@@ -1208,14 +1854,13 @@ function handlePalPlussWebhook(body, ip, ua) {
       console.error("[palpluss] webhook: unknown B2C ref", reference);
       return { ok: true, ignored: true };
     }
-
-    if (withdrawal.status === "paid") return { ok: true, alreadyPaid: true };
-
+    if (withdrawal.status === "paid") {
+      return { ok: true, alreadyPaid: true };
+    }
     if (eventType === "transaction.success") {
       finalizePayoutSuccess(withdrawal, tx, null, ip, ua);
       return { ok: true, status: "paid" };
     }
-
     if (
       eventType === "transaction.failed" ||
       eventType === "transaction.cancelled" ||
@@ -1231,6 +1876,7 @@ function handlePalPlussWebhook(body, ip, ua) {
       );
       return { ok: true, status: "failed" };
     }
+    return { ok: true, ignored: true };
   }
 
   return { ok: true, ignored: true };
@@ -1370,6 +2016,7 @@ function processSuccessfulPayment(verifiedData, ip, ua) {
     });
 
     let commission = null;
+
     const user = database
       .prepare("SELECT * FROM users WHERE id = ?")
       .get(fresh.user_id);
@@ -1434,15 +2081,16 @@ function processSuccessfulPayment(verifiedData, ip, ua) {
       }
     }
 
-    return { alreadyProcessed: false, paymentId: fresh.id, commission };
+    return {
+      alreadyProcessed: false,
+      paymentId: fresh.id,
+      commission,
+    };
   })();
 
-  // Side-effects that must NOT run inside the DB transaction:
-  // SSE to the browser and notification rows — if the tx rolls back,
-  // the user should never see "payment confirmed".
   try {
     audit(
-      result.paymentId,
+      null,
       "system",
       "payment.success",
       "payment",
@@ -1530,7 +2178,7 @@ function insertLedger(entry) {
 }
 
 // ============================================================================
-// WALLET  (unchanged)
+// WALLET
 // ============================================================================
 function recomputeWallet(userId) {
   const database = getDb();
@@ -1560,6 +2208,7 @@ function recomputeWallet(userId) {
     requested: 0,
     approved: 0,
     processing: 0,
+    queued: 0,
     paid: 0,
     failed: 0,
     rejected: 0,
@@ -1569,14 +2218,18 @@ function recomputeWallet(userId) {
     if (w.status in wByStatus) wByStatus[w.status] = w.total || 0;
 
   const reserved =
-    wByStatus.requested + wByStatus.approved + wByStatus.processing;
-  const available = byStatus.available - reserved;
+    wByStatus.requested +
+    wByStatus.approved +
+    wByStatus.processing +
+    wByStatus.queued;
+  const available = byStatus.available;
 
   return {
     pendingKobo: byStatus.pending + byStatus.eligible,
     availableKobo: Math.max(available, 0),
     processingKobo: byStatus.payout_processing,
     reservedKobo: reserved,
+    queuedKobo: wByStatus.queued,
     paidKobo: byStatus.paid,
     withdrawnKobo: wByStatus.paid,
     reversedKobo: byStatus.reversed,
@@ -1672,9 +2325,44 @@ function listWalletTransactions(userId, page, pageSize) {
 }
 
 // ============================================================================
-// WITHDRAWALS — PALPLUSS B2C PAYOUTS
+// QUEUE HELPERS
 // ============================================================================
-function requestWithdrawal(userId, amountKobo, ip, ua) {
+function getQueuedShortfall() {
+  const database = getDb();
+  const row = database
+    .prepare(
+      "SELECT COUNT(*) AS c, COALESCE(SUM(amount_kobo), 0) AS t FROM withdrawals WHERE status IN ('requested', 'approved', 'queued')",
+    )
+    .get();
+  return { count: row.c || 0, totalKobo: row.t || 0 };
+}
+
+function notifyAdminsOfShortfall(trigger) {
+  const database = getDb();
+  const shortfall = getQueuedShortfall();
+  if (shortfall.count === 0) return;
+  const admins = database
+    .prepare("SELECT id FROM users WHERE role = 'admin'")
+    .all();
+  if (admins.length === 0) return;
+
+  const body =
+    `${shortfall.count} payout(s) queued, totalling KSh ${(shortfall.totalKobo / 100).toFixed(2)}. ` +
+    `Top up your PalPluss B2C wallet, then click "Disburse queued payouts" to release them.`;
+
+  for (const admin of admins) {
+    notify(admin.id, "b2c_shortfall", "B2C wallet needs funds", body, {
+      count: shortfall.count,
+      totalKobo: shortfall.totalKobo,
+      trigger,
+    });
+  }
+}
+
+// ============================================================================
+// WITHDRAWALS — QUEUE-BASED PALPLUSS B2C PAYOUTS
+// ============================================================================
+async function requestWithdrawal(userId, amountKobo, ip, ua) {
   const database = getDb();
   if (
     !getSettingBool("withdrawals_enabled", CONFIG.features.withdrawalsEnabled)
@@ -1705,53 +2393,87 @@ function requestWithdrawal(userId, amountKobo, ip, ua) {
   if (wallet.availableKobo < amt)
     return { error: "Insufficient available balance" };
 
-  const tx = database.transaction(() => {
-    const fresh = database
-      .prepare("SELECT * FROM users WHERE id = ?")
-      .get(userId);
-    if (!fresh || fresh.status !== "active")
-      throw new Error("Account not eligible");
-    const wallet2 = recomputeWallet(userId);
-    if (wallet2.availableKobo < amt)
-      throw new Error("Insufficient available balance");
-
-    const withdrawalId = uuidv4();
-    database
-      .prepare(
-        `INSERT INTO withdrawals
-         (id, user_id, amount_kobo, currency, status, payout_phone)
-         VALUES (?, ?, ?, 'KES', 'requested', ?)`,
-      )
-      .run(withdrawalId, userId, amt, fresh.payout_phone);
-    reserveCommissionFunds(userId, amt);
-    audit(
-      userId,
-      "member",
-      "withdrawal.request",
-      "withdrawal",
-      withdrawalId,
-      ip,
-      ua,
-      {
-        amountKobo: amt,
-        payoutPhone: fresh.payout_phone,
-      },
-    );
-    notify(
-      userId,
-      "withdrawal_requested",
-      "Withdrawal request received",
-      `Your withdrawal of KSh ${(amt / 100).toFixed(2)} is pending review.`,
-      { withdrawalId },
-    );
-    return withdrawalId;
-  });
-
+  let withdrawalId = null;
   try {
-    return { withdrawalId: tx() };
+    const tx = database.transaction(() => {
+      const fresh = database
+        .prepare("SELECT * FROM users WHERE id = ?")
+        .get(userId);
+      if (!fresh || fresh.status !== "active")
+        throw new Error("Account not eligible");
+      const wallet2 = recomputeWallet(userId);
+      if (wallet2.availableKobo < amt)
+        throw new Error("Insufficient available balance");
+
+      const wId = uuidv4();
+      database
+        .prepare(
+          `INSERT INTO withdrawals
+           (id, user_id, amount_kobo, currency, status, payout_phone)
+           VALUES (?, ?, ?, 'KES', 'requested', ?)`,
+        )
+        .run(wId, userId, amt, fresh.payout_phone);
+      reserveCommissionFunds(userId, amt);
+      return wId;
+    });
+    withdrawalId = tx();
   } catch (e) {
     return { error: e.message };
   }
+
+  audit(
+    userId,
+    "member",
+    "withdrawal.request",
+    "withdrawal",
+    withdrawalId,
+    ip,
+    ua,
+    { amountKobo: amt, payoutPhone: user.payout_phone },
+  );
+
+  const withdrawal = database
+    .prepare("SELECT * FROM withdrawals WHERE id = ?")
+    .get(withdrawalId);
+  const result = await executePayout(withdrawal, userId, ip, ua);
+
+  if (result.queued) {
+    notify(
+      userId,
+      "withdrawal_queued",
+      "Withdrawal queued",
+      `Your withdrawal of KSh ${(amt / 100).toFixed(2)} has been queued. ` +
+        `It will be sent to M-Pesa within 24 hours — usually much sooner.`,
+      { withdrawalId },
+    );
+    return {
+      withdrawalId,
+      status: "queued",
+      message:
+        "Payment queued. Funds will arrive in your M-Pesa within 24 hours.",
+    };
+  }
+
+  if (result.error) {
+    notify(
+      userId,
+      "withdrawal_failed",
+      "Withdrawal failed",
+      `Your withdrawal of KSh ${(amt / 100).toFixed(2)} could not be processed: ${result.error}`,
+      { withdrawalId, reason: result.error },
+    );
+    return {
+      withdrawalId,
+      status: "failed",
+      error: result.error,
+    };
+  }
+
+  return {
+    withdrawalId,
+    status: "processing",
+    message: "Sending to M-Pesa — you'll receive a confirmation shortly.",
+  };
 }
 
 function reserveCommissionFunds(userId, amountKobo) {
@@ -1764,7 +2486,6 @@ function reserveCommissionFunds(userId, amountKobo) {
     )
     .all(userId);
 
-  // Greedy fill — we must consume whole commissions exactly.
   let remaining = amountKobo;
   const toReserve = [];
   for (const r of rows) {
@@ -1784,26 +2505,6 @@ function reserveCommissionFunds(userId, amountKobo) {
     `UPDATE commissions SET status = 'payout_processing', updated_at = datetime('now') WHERE id = ?`,
   );
   for (const r of toReserve) update.run(r.id);
-}
-
-async function processPayouts(actorId, ip, ua) {
-  const database = getDb();
-  const pending = database
-    .prepare(
-      `SELECT * FROM withdrawals
-       WHERE status IN ('requested', 'approved') AND provider_transfer_code IS NULL
-       ORDER BY created_at ASC LIMIT 20`,
-    )
-    .all();
-  const results = [];
-  for (const w of pending) {
-    try {
-      results.push(await executePayout(w, actorId, ip, ua));
-    } catch (e) {
-      results.push({ withdrawalId: w.id, error: e.message });
-    }
-  }
-  return { results };
 }
 
 async function executePayout(withdrawal, actorId, ip, ua) {
@@ -1892,6 +2593,54 @@ async function executePayout(withdrawal, actorId, ip, ua) {
 
     return { withdrawalId: withdrawal.id, transactionId, reference };
   } catch (e) {
+    if (palpluss.isRetryableB2CError(e)) {
+      database
+        .prepare(
+          `UPDATE withdrawals
+           SET status = 'queued', failure_reason = ?, updated_at = datetime('now')
+           WHERE id = ?`,
+        )
+        .run(
+          `B2C wallet not ready (${e.code}) — awaiting top-up`,
+          withdrawal.id,
+        );
+
+      audit(
+        actorId || null,
+        "system",
+        "payout.queued_insufficient_float",
+        "withdrawal",
+        withdrawal.id,
+        ip,
+        ua,
+        {
+          code: e.code,
+          message: e.message,
+          amountKobo: withdrawal.amount_kobo,
+        },
+      );
+
+      pushSSE(withdrawal.user_id, {
+        type: "withdrawal_queued",
+        withdrawalId: withdrawal.id,
+        at: nowIso(),
+      });
+
+      try {
+        notifyAdminsOfShortfall("withdrawal_queued");
+      } catch (err) {
+        console.error("[shortfall-notify]", err.message);
+      }
+
+      console.error(`[b2c] ${withdrawal.id}: queued — ${e.code}: ${e.message}`);
+      return {
+        withdrawalId: withdrawal.id,
+        queued: true,
+        code: e.code,
+        error: e.message,
+      };
+    }
+
     database
       .prepare(
         `UPDATE withdrawals SET status = 'failed', failure_reason = ?, updated_at = datetime('now') WHERE id = ?`,
@@ -1903,8 +2652,112 @@ async function executePayout(withdrawal, actorId, ip, ua) {
          WHERE beneficiary_user_id = ? AND status = 'payout_processing'`,
       )
       .run(withdrawal.user_id);
+
+    audit(
+      actorId || null,
+      "system",
+      "payout.failed",
+      "withdrawal",
+      withdrawal.id,
+      ip,
+      ua,
+      { code: e.code || "NON_RETRYABLE", message: e.message },
+    );
+
     return { withdrawalId: withdrawal.id, error: e.message };
   }
+}
+
+async function disburseQueued(actorId, ip, ua) {
+  const database = getDb();
+  const queued = database
+    .prepare(
+      `SELECT * FROM withdrawals
+       WHERE status IN ('requested', 'approved', 'queued')
+         AND provider_transfer_code IS NULL
+       ORDER BY created_at ASC LIMIT 100`,
+    )
+    .all();
+
+  const summary = {
+    attempted: 0,
+    sent: 0,
+    stillQueued: 0,
+    failed: 0,
+    totalSentKobo: 0,
+    results: [],
+  };
+
+  for (const w of queued) {
+    summary.attempted++;
+    try {
+      const r = await executePayout(w, actorId, ip, ua);
+      if (r.queued) {
+        summary.stillQueued++;
+        summary.results.push({
+          withdrawalId: w.id,
+          status: "queued",
+          code: r.code,
+        });
+      } else if (r.error) {
+        summary.failed++;
+        summary.results.push({
+          withdrawalId: w.id,
+          status: "failed",
+          error: r.error,
+        });
+      } else {
+        summary.sent++;
+        summary.totalSentKobo += w.amount_kobo;
+        summary.results.push({
+          withdrawalId: w.id,
+          status: "processing",
+          transactionId: r.transactionId,
+        });
+      }
+    } catch (e) {
+      summary.failed++;
+      summary.results.push({
+        withdrawalId: w.id,
+        status: "error",
+        error: e.message,
+      });
+    }
+  }
+
+  const post = getQueuedShortfall();
+  summary.remainingCount = post.count;
+  summary.remainingKobo = post.totalKobo;
+
+  audit(
+    actorId || null,
+    "admin",
+    "payout.disburse_batch",
+    "withdrawal",
+    null,
+    ip,
+    ua,
+    {
+      attempted: summary.attempted,
+      sent: summary.sent,
+      stillQueued: summary.stillQueued,
+      failed: summary.failed,
+      remainingCount: summary.remainingCount,
+      remainingKobo: summary.remainingKobo,
+    },
+  );
+
+  try {
+    notifyAdminsOfShortfall("disburse_batch");
+  } catch (err) {
+    console.error("[shortfall-notify]", err.message);
+  }
+
+  return summary;
+}
+
+async function processPayouts(actorId, ip, ua) {
+  return disburseQueued(actorId, ip, ua);
 }
 
 function finalizePayoutSuccess(w, txData, actorId, ip, ua) {
@@ -1947,9 +2800,7 @@ function finalizePayoutSuccess(w, txData, actorId, ip, ua) {
       fresh.id,
       ip,
       ua,
-      {
-        amountKobo: fresh.amount_kobo,
-      },
+      { amountKobo: fresh.amount_kobo },
     );
     notify(
       fresh.user_id,
@@ -2032,7 +2883,7 @@ function listWithdrawals(userId, page, pageSize) {
 }
 
 // ============================================================================
-// RECONCILIATION — adapted for PalPluss
+// RECONCILIATION
 // ============================================================================
 async function runReconciliation(actorId, ip, ua) {
   const database = getDb();
@@ -2045,7 +2896,6 @@ async function runReconciliation(actorId, ip, ua) {
 
   const exceptions = [];
 
-  // 1. Stale STK payments — re-query PalPluss
   const stalePayments = database
     .prepare(
       `SELECT * FROM payments
@@ -2093,7 +2943,6 @@ async function runReconciliation(actorId, ip, ua) {
     }
   }
 
-  // 2. Stale B2C payouts — re-query PalPluss
   const stalePayouts = database
     .prepare(
       `SELECT * FROM withdrawals w
@@ -2160,15 +3009,13 @@ async function runReconciliation(actorId, ip, ua) {
     runId,
     ip,
     ua,
-    {
-      exceptions: exceptions.length,
-    },
+    { exceptions: exceptions.length },
   );
   return { runId, exceptions };
 }
 
 // ============================================================================
-// ADMIN  (unchanged except provider references)
+// ADMIN
 // ============================================================================
 function adminOverview() {
   const database = getDb();
@@ -2248,6 +3095,7 @@ function adminOverview() {
     requested: 0,
     approved: 0,
     processing: 0,
+    queued: 0,
     paid: 0,
     failed: 0,
     rejected: 0,
@@ -2257,6 +3105,7 @@ function adminOverview() {
     requested: 0,
     approved: 0,
     processing: 0,
+    queued: 0,
     paid: 0,
     failed: 0,
     rejected: 0,
@@ -2289,6 +3138,7 @@ function adminOverview() {
     payments: { counts: pStats, amountsKobo: pAmounts },
     commissions: { counts: cStats, amountsKobo: cAmounts },
     withdrawals: { counts: wStats, amountsKobo: wAmounts },
+    queuedPayouts: { count: wStats.queued, totalKobo: wAmounts.queued },
     processingFeesKobo: fees,
     platformAllocationKobo: platformAlloc,
     openReconciliationExceptions: openExceptions,
@@ -2480,7 +3330,7 @@ function adminListSettings() {
   return getDb().prepare("SELECT * FROM settings ORDER BY key").all();
 }
 function adminUpdateSetting(key, value, actorId, ip, ua) {
-  setSetting(key, value, actorId);
+  setSetting(key, value);
   audit(actorId, "admin", "setting.update", "settings", key, ip, ua, {
     key,
     value,
@@ -2504,19 +3354,77 @@ function adminListReconciliation() {
 }
 
 // ============================================================================
-// BOOTSTRAP  (unchanged)
+// BOOTSTRAP
 // ============================================================================
 async function bootstrap() {
   migrate();
   tursoClient = makeTursoClient();
-  if (tursoClient) {
-    await restoreFromTurso();
-  } else {
+
+  if (!tursoClient) {
     console.log("[turso] not configured — local-only mode");
+    seedSettings();
+    seedAdmin();
+    return { mode: "local" };
   }
+
+  let sync;
+  try {
+    sync = await syncOnBoot();
+    if (sync.error) {
+      console.error("[turso] boot sync error:", sync.error);
+    } else {
+      console.log(
+        `[turso] boot sync complete — ` +
+          `schema=${sync.schema?.created ? "created" : "ok"}, ` +
+          `pulled=${sync.pulled?.restored ? sync.pulled.rows : 0}, ` +
+          `pushed=${sync.pushed?.pushed || 0}`,
+      );
+    }
+  } catch (e) {
+    console.error("[turso] boot sync threw:", e.message);
+    sync = { error: e.message };
+  }
+
   seedSettings();
   seedAdmin();
+
+  return { mode: "synced", sync };
 }
+
+
+// ============================================================================
+// LIVE WITHDRAWALS FEED (for member dashboard "Live withdrawals" card)
+// ============================================================================
+/**
+ * Recent withdrawals across all users, masked for public display.
+ * Only paid / processing / queued — pending (requested) rows are hidden
+ * to avoid showing withdrawals that may still fail.
+ */
+function recentWithdrawals(limit = 15) {
+  const database = getDb();
+  const lim = Math.min(Math.max(parseInt(limit || 15, 10), 1), 50);
+  const rows = database
+    .prepare(
+      `SELECT w.id, w.user_id, w.amount_kobo, w.status,
+              w.paid_at, w.processed_at, w.updated_at, w.created_at,
+              u.full_name
+       FROM withdrawals w
+       JOIN users u ON u.id = w.user_id
+       WHERE w.status IN ('paid', 'processing', 'queued')
+       ORDER BY COALESCE(w.paid_at, w.processed_at, w.updated_at, w.created_at) DESC
+       LIMIT ?`,
+    )
+    .all(lim);
+  return rows.map((r) => ({
+    id: r.id.slice(0, 8).toUpperCase(),
+    userId: r.user_id,
+    name: maskName(r.full_name),
+    amountKobo: r.amount_kobo,
+    status: r.status,
+    at: r.paid_at || r.processed_at || r.updated_at || r.created_at,
+  }));
+}
+
 
 // ============================================================================
 // EXPORTS
@@ -2550,7 +3458,11 @@ module.exports = {
   listCommissions,
   listWalletTransactions,
   requestWithdrawal,
+  executePayout,
+  disburseQueued,
   processPayouts,
+  getQueuedShortfall,
+  notifyAdminsOfShortfall,
   finalizePayoutSuccess,
   finalizePayoutFailure,
   listWithdrawals,
@@ -2566,6 +3478,7 @@ module.exports = {
   adminListSettings,
   adminUpdateSetting,
   adminListReconciliation,
+  recentWithdrawals, 
   getSetting,
   getSettingInt,
   getSettingBool,
@@ -2574,4 +3487,12 @@ module.exports = {
   notify,
   registerSSENotifier,
   pushSSE,
+  // Turso + delete + schema
+  deleteUser,
+  pullFromTurso,
+  pushLocalToTurso,
+  syncOnBoot,
+  ensureTursoSchema,
+  flushNow,
+  syncStatus,
 };
