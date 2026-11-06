@@ -9,21 +9,7 @@
         <meta name="theme-color" content="#f5f5f7" />
         <title>My Account — Referal Kenya</title>
         <script src="https://cdn.tailwindcss.com"></script>
-
-        <!-- ============================================================= -->
-        <!-- MONETAG GLOBAL LOADER (Banner + Native zones)                 -->
-        <!-- Replace BOTH zone ids with the real ids from your dashboard.  -->
-        <!-- This single script registers all zones; per-slot <div>s just -->
-        <!-- need data-zone="..." and the network injects the creative.    -->
-        <!-- ============================================================= -->
-        <script>
-            (function () {
-                var s = document.createElement("script");
-                s.dataset.zone = "12203314";
-                s.src = "https://nap5k.com/tag.min.js";
-                document.body.appendChild(s);
-            })();
-        </script>
+        <!-- Monetag loader moved to bottom of <body> (see end of file) -->
 
         <style>
             body {
@@ -301,9 +287,8 @@
 
             /* ================================================================
                AD SLOT STYLES
-               Four labeled slots. Reserve fixed heights so layout does NOT
-               shift when the ad renders (CLS = 0). The network fills the
-               min-height area, and the label keeps it clearly "Sponsored".
+               Reserved heights so layout does NOT shift when an ad renders
+               (CLS = 0). The label keeps it clearly "Sponsored".
                ================================================================ */
             .ad-slot {
                 background: #fff;
@@ -323,7 +308,6 @@
                 color: #b0b0b8;
                 pointer-events: none;
             }
-            /* Banner: 320x50 mobile, 728x90 desktop — reserve height */
             .ad-slot--banner {
                 min-height: 60px;
                 display: flex;
@@ -336,7 +320,6 @@
                     min-height: 100px;
                 }
             }
-            /* Native: taller, image + headline + body */
             .ad-slot--native {
                 min-height: 140px;
                 padding: 20px 12px 12px;
@@ -346,7 +329,6 @@
                     min-height: 180px;
                 }
             }
-            /* In-page push: small footer rectangle */
             .ad-slot--push {
                 min-height: 80px;
                 padding: 14px 12px 12px;
@@ -385,6 +367,7 @@
                         <input
                             name="password"
                             type="password"
+                            autocomplete="current-password"
                             required
                             class="w-full apple-input px-4 py-3 text-[15px]"
                         />
@@ -530,21 +513,15 @@
                         </button>
                     </div>
 
-                    <!-- ===================================================== -->
-                    <!-- AD SLOT #1 — TOP BANNER (Above the fold)             -->
-                    <!-- Highest-value banner slot. Users land here first.    -->
-                    <!-- Replace data-zone below with your BANNER zone id.    -->
-                    <!-- ===================================================== -->
+                    <!-- AD SLOT #1 — TOP BANNER -->
                     <div class="ad-slot ad-slot--banner" aria-label="Sponsored">
                         <span class="ad-slot-label">Sponsored</span>
+                        <div id="ad-slot-top" data-zone="12203314"></div>
                     </div>
-                    <!-- ===================================================== -->
-                    <!-- END AD SLOT #1                                        -->
-                    <!-- ===================================================== -->
 
                     <!-- ============ OVERVIEW ============ -->
                     <div id="view-overview" class="space-y-6">
-                        <!-- Hero balance card (rich black) -->
+                        <!-- Hero balance card -->
                         <div
                             class="apple-card hero-gradient p-6 md:p-8 relative overflow-hidden"
                         >
@@ -913,11 +890,7 @@
                             </div>
                         </div>
 
-                        <!-- ================================================= -->
-                        <!-- AD SLOT #2 — NATIVE, BELOW OVERVIEW CONTENT        -->
-                        <!-- Content-matched card. Sits after the "Recent       -->
-                        <!-- activity" grid, before the tab ends.                -->
-                        <!-- ================================================= -->
+                        <!-- AD SLOT #2 — NATIVE -->
                         <div
                             class="ad-slot ad-slot--native"
                             aria-label="Recommended"
@@ -925,12 +898,9 @@
                             <span class="ad-slot-label">Recommended</span>
                             <div
                                 id="ad-slot-native-overview"
-                                data-zone="12203383"
+                                data-zone="12203314"
                             ></div>
                         </div>
-                        <!-- ================================================= -->
-                        <!-- END AD SLOT #2                                    -->
-                        <!-- ================================================= -->
                     </div>
 
                     <!-- ============ REFERRALS ============ -->
@@ -953,11 +923,7 @@
                             ></div>
                         </div>
 
-                        <!-- ================================================= -->
-                        <!-- AD SLOT #3 — BANNER, END OF REFERRALS TAB          -->
-                        <!-- Low intrusion: users have finished scanning the    -->
-                        <!-- list and reach the end of the tab.                  -->
-                        <!-- ================================================= -->
+                        <!-- AD SLOT #3 — BANNER -->
                         <div
                             class="ad-slot ad-slot--banner"
                             aria-label="Sponsored"
@@ -965,12 +931,9 @@
                             <span class="ad-slot-label">Sponsored</span>
                             <div
                                 id="ad-slot-referrals-bottom"
-                                data-zone="12203383"
+                                data-zone="12203314"
                             ></div>
                         </div>
-                        <!-- ================================================= -->
-                        <!-- END AD SLOT #3                                    -->
-                        <!-- ================================================= -->
                     </div>
 
                     <!-- ============ WALLET ============ -->
@@ -1148,11 +1111,7 @@
                             </div>
                         </div>
 
-                        <!-- ================================================= -->
-                        <!-- AD SLOT #4 — BANNER, END OF WALLET TAB             -->
-                        <!-- Below the withdraw CTA. User has already decided   -->
-                        <!-- whether to act; low interruption risk.              -->
-                        <!-- ================================================= -->
+                        <!-- AD SLOT #4 — BANNER -->
                         <div
                             class="ad-slot ad-slot--banner"
                             aria-label="Sponsored"
@@ -1160,12 +1119,9 @@
                             <span class="ad-slot-label">Sponsored</span>
                             <div
                                 id="ad-slot-wallet-bottom"
-                                data-zone="12203383"
+                                data-zone="12203314"
                             ></div>
                         </div>
-                        <!-- ================================================= -->
-                        <!-- END AD SLOT #4                                    -->
-                        <!-- ================================================= -->
 
                         <div class="apple-card overflow-hidden">
                             <div
@@ -1218,7 +1174,6 @@
 
                     <!-- ============ PROFILE ============ -->
                     <div id="view-profile" class="hide space-y-6">
-                        <!-- Profile hero -->
                         <div class="apple-card p-6 md:p-8">
                             <div class="flex items-center gap-5 flex-wrap">
                                 <div
@@ -1324,7 +1279,6 @@
                             </div>
                         </div>
 
-                        <!-- Edit form -->
                         <div class="apple-card p-6 md:p-8">
                             <h3 class="text-xl font-bold tracking-tight mb-6">
                                 Personal Information
@@ -1398,11 +1352,7 @@
                             ></div>
                         </div>
 
-                        <!-- ================================================= -->
-                        <!-- AD SLOT #5 — IN-PAGE PUSH                          -->
-                        <!-- Small footer rectangle, below the profile form.    -->
-                        <!-- Only 1 push zone per page recommended.             -->
-                        <!-- ================================================= -->
+                        <!-- AD SLOT #5 — IN-PAGE PUSH -->
                         <div
                             class="ad-slot ad-slot--push"
                             aria-label="Sponsored"
@@ -1410,14 +1360,10 @@
                             <span class="ad-slot-label">Sponsored</span>
                             <div
                                 id="ad-slot-push-profile"
-                                data-zone="12203383"
+                                data-zone="12203314"
                             ></div>
                         </div>
-                        <!-- ================================================= -->
-                        <!-- END AD SLOT #5                                    -->
-                        <!-- ================================================= -->
 
-                        <!-- Danger zone -->
                         <div
                             class="apple-card p-6 md:p-8 border-2 border-red-200 bg-red-50/40"
                         >
@@ -1687,7 +1633,6 @@
             class="hide fixed inset-0 z-[110] bg-black/50 backdrop-blur-sm flex items-center justify-center px-4 py-8 overflow-y-auto"
         >
             <div class="apple-card p-6 md:p-8 w-full max-w-md my-auto">
-                <!-- Step 1: form -->
                 <div id="wdStep1">
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-xl font-bold tracking-tight">
@@ -1804,7 +1749,6 @@
                     ></div>
                 </div>
 
-                <!-- Step 2: waiting -->
                 <div id="wdStep2" class="hide text-center py-6">
                     <div class="w-16 h-16 mx-auto mb-6 relative">
                         <div
@@ -1820,7 +1764,6 @@
                     </p>
                 </div>
 
-                <!-- Step 3: success -->
                 <div id="wdStep3" class="hide text-center py-4">
                     <div
                         class="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-6"
@@ -1863,7 +1806,6 @@
                     </button>
                 </div>
 
-                <!-- Step 4: error -->
                 <div id="wdStep4" class="hide text-center py-4">
                     <div
                         class="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-6"
@@ -2138,20 +2080,18 @@
                         connectSSE();
                         handlePaymentQuery();
                         startLiveWithdrawals();
-                        initAds();
+                        logAdSlots();
                     } catch (e) {
                         $("#loginView").classList.remove("hide");
                     }
                 }
 
                 // =============================================================
-                // MONETAG AD MOUNT
-                // The global tag.min.js in <head> handles most zones, but some
-                // "Banner" and "Native" zones want per-slot initialization.
-                // This just ensures each slot has a unique id so Monetag can
-                // find it, and reports it to console for debugging.
+                // AD SLOT DEBUG LOGGER
+                // Just logs which slots exist. Actual ad injection is handled
+                // by the Monetag loader at the bottom of <body>.
                 // =============================================================
-                function initAds() {
+                function logAdSlots() {
                     const slots = [
                         "ad-slot-top",
                         "ad-slot-native-overview",
@@ -2161,7 +2101,10 @@
                     ];
                     slots.forEach((id) => {
                         const el = document.getElementById(id);
-                        if (!el) return;
+                        if (!el) {
+                            console.warn("[monetag] slot missing:", id);
+                            return;
+                        }
                         console.log(
                             "[monetag] slot ready:",
                             id,
@@ -3079,6 +3022,20 @@
                 });
 
                 boot();
+            })();
+        </script>
+
+        <!-- ============================================================
+             MONETAG LOADER — placed at END of <body> so document.body
+             exists. This fixes the "Cannot read properties of null
+             (reading 'appendChild')" error caused by placing it in <head>.
+             ============================================================ -->
+        <script>
+            (function () {
+                var s = document.createElement("script");
+                s.dataset.zone = "12203314";
+                s.src = "https://nap5k.com/tag.min.js";
+                document.body.appendChild(s);
             })();
         </script>
     </body>
