@@ -855,6 +855,70 @@
                 const $$ = (s) => document.querySelectorAll(s);
                 $("#year").textContent = new Date().getFullYear();
 
+                // ============================================================
+                // ngrok free-tier interstitial bypass
+                // Without this, ngrok serves an HTML warning page for browser
+                // fetches, which breaks response.json() with "Unexpected token '<'".
+                // ============================================================
+                (function patchFetchForNgrok() {
+                    const orig = window.fetch;
+                    window.fetch = function (input, init = {}) {
+                        const headers = new Headers(
+                            init.headers ||
+                                (input instanceof Request
+                                    ? input.headers
+                                    : undefined),
+                        );
+                        if (!headers.has("ngrok-skip-browser-warning")) {
+                            headers.set("ngrok-skip-browser-warning", "1");
+                        }
+                        if (input instanceof Request) {
+                            return orig(
+                                new Request(input, { ...init, headers }),
+                            );
+                        }
+                        return orig(input, { ...init, headers });
+                    };
+                })();
+
+                // ============================================================
+                // Unregister any stale service worker (prevents cached HTML)
+                // ============================================================
+                if ("serviceWorker" in navigator) {
+                    navigator.serviceWorker
+                        .getRegistrations()
+                        .then((regs) => regs.forEach((r) => r.unregister()))
+                        .catch(() => {});
+                }
+
+                // ============================================================
+                // apiFetch: fail loudly on non-JSON so bugs are obvious
+                // ============================================================
+                async function apiFetch(url, opts = {}) {
+                    const res = await fetch(url, opts);
+                    const ct = res.headers.get("content-type") || "";
+                    if (!ct.includes("application/json")) {
+                        const text = await res.text();
+                        console.error(
+                            "[apiFetch] Non-JSON from",
+                            url,
+                            "→",
+                            res.status,
+                            ct,
+                        );
+                        console.error(text.slice(0, 300));
+                        throw new Error(
+                            `Server returned ${res.status} ${ct || "(no content-type)"} — expected JSON.`,
+                        );
+                    }
+                    const data = await res.json();
+                    if (!res.ok)
+                        throw new Error(
+                            data.error || `Request failed (${res.status})`,
+                        );
+                    return data;
+                }
+
                 // ---- Config ----
                 let config = null;
                 (function loadConfig() {
@@ -865,8 +929,7 @@
                             applyConfig();
                         } catch (e) {}
                     }
-                    fetch("/api/config")
-                        .then((r) => r.json())
+                    apiFetch("/api/config")
                         .then((d) => {
                             config = d;
                             localStorage.setItem(
@@ -919,13 +982,12 @@
                 const ref = (params.get("ref") || "").toUpperCase();
                 const authQS = ref ? `&ref=${encodeURIComponent(ref)}` : "";
 
-                // Update teaser + nav hrefs to preserve ref
+                // Preserve ref across all nav links
                 $("#teaserRegister").href = `/auth.html?mode=register${authQS}`;
                 $("#teaserLogin").href = `/auth.html?mode=login${authQS}`;
                 $("#navGetStarted").href = `/auth.html?mode=register${authQS}`;
                 $("#navLogin").href = `/auth.html?mode=login${authQS}`;
 
-                // Pre-fill referral code in inline desktop form
                 if (ref) {
                     const rc = $("#referralCode");
                     if (rc) rc.value = ref;
@@ -941,15 +1003,15 @@
                             "x" +
                             screen.height,
                     ).slice(0, 60);
-                    fetch("/api/referral/click", {
+                    apiFetch("/api/referral/click", {
                         method: "POST",
+                        credentials: "same-origin",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ code: ref, fingerprint: fp }),
                     }).catch(() => {});
                 }
 
                 // ---- Desktop nav: intercept and scroll to inline form ----
-                // Below lg, the anchor defaults to navigating to auth.html
                 $("#navGetStarted").addEventListener("click", (e) => {
                     if (window.innerWidth < 1024) return;
                     e.preventDefault();
@@ -968,8 +1030,7 @@
                 });
 
                 // ---- Session check ----
-                fetch("/api/auth/me")
-                    .then((r) => (r.ok ? r.json() : null))
+                apiFetch("/api/auth/me")
                     .then((d) => {
                         if (d && d.user) {
                             $("#navAccount").classList.remove("hide");
@@ -990,7 +1051,7 @@
                             : "bg-green-50 text-green-700 border border-green-200");
                 }
 
-                // ---- Payment modal state (desktop inline flow only) ----
+                // ---- Payment modal state ----
                 let currentPaymentRef = null;
                 let pollTimer = null;
                 let pollDeadline = 0;
@@ -1024,14 +1085,12 @@
                     $("#payStep1").classList.add("hide");
                     $("#payStep2").classList.remove("hide");
                     try {
-                        const res = await fetch("/api/payments/charge", {
+                        const data = await apiFetch("/api/payments/charge", {
                             method: "POST",
+                            credentials: "same-origin",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ phone }),
                         });
-                        const data = await res.json();
-                        if (!res.ok)
-                            throw new Error(data.error || "Charge failed");
                         currentPaymentRef = data.reference;
                         if (data.status === "success") {
                             finishPayment(true);
@@ -1062,11 +1121,10 @@
                             return;
                         }
                         try {
-                            const r = await fetch(
+                            const d = await apiFetch(
                                 "/api/payments/verify/" +
                                     encodeURIComponent(currentPaymentRef),
                             );
-                            const d = await r.json();
                             if (d.status === "success" || d.alreadyProcessed) {
                                 clearInterval(pollTimer);
                                 finishPayment(true);
@@ -1138,16 +1196,12 @@
                         acceptTerms: fd.get("acceptTerms") === "on",
                     };
                     try {
-                        const res = await fetch("/api/auth/register", {
+                        await apiFetch("/api/auth/register", {
                             method: "POST",
+                            credentials: "same-origin",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify(payload),
                         });
-                        const data = await res.json();
-                        if (!res.ok)
-                            throw new Error(
-                                data.error || "Registration failed",
-                            );
                         showMsg(
                             $("#registerMsg"),
                             "Account created. Complete your payment below.",
@@ -1172,17 +1226,15 @@
                     btn.textContent = "Logging in...";
                     const fd = new FormData(form);
                     try {
-                        const res = await fetch("/api/auth/login", {
+                        await apiFetch("/api/auth/login", {
                             method: "POST",
+                            credentials: "same-origin",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
                                 identifier: fd.get("identifier"),
                                 password: fd.get("password"),
                             }),
                         });
-                        const data = await res.json();
-                        if (!res.ok)
-                            throw new Error(data.error || "Login failed");
                         showMsg(
                             $("#loginMsg"),
                             "Success! Redirecting...",

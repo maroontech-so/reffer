@@ -3,10 +3,10 @@
  * - Local SQLite (fast, synchronous)
  * - Turso (libSQL) async mirror with:
  *     • write-through sync queue (every INSERT/UPDATE/DELETE)
- *     • boot-time schema mirror (Turso is kept in lockstep with local schema)
+ *     • boot-time schema mirror (Turso kept in lockstep with local schema)
  *     • PRODUCTION: Turso is authoritative — pull on every boot
  *     • DEVELOPMENT: local is authoritative — pull only when local empty
- *     • boot-time push backfill (local rows missing on Turso)
+ *     • FK-AWARE ordered push (via turso-sync.js) with deferral on orphans
  *     • graceful flush on shutdown
  *     • cascade deletes that propagate to Turso
  * - PalPluss for STK collections and B2C disbursements
@@ -24,9 +24,10 @@ const { v4: uuidv4 } = require("uuid");
 const Database = require("better-sqlite3");
 
 const palpluss = require("./palpluss");
+const tursoSync = require("./turso-sync");
 
 // ============================================================================
-// CONFIG
+// CONFIG  (unchanged from your file)
 // ============================================================================
 const CONFIG = {
   nodeEnv: process.env.NODE_ENV || "development",
@@ -101,7 +102,7 @@ const CONFIG = {
 };
 
 // ============================================================================
-// TURSO CLIENT + SYNC QUEUE
+// TURSO CLIENT + WRITE-THROUGH QUEUE
 // ============================================================================
 let tursoClient = null;
 let suppressTursoSync = false;
@@ -152,12 +153,8 @@ function makeTursoClient() {
 }
 
 /**
- * Ensure Turso has the same schema as local.
- *
- * Turso can be completely empty (no tables at all) — e.g. a fresh project
- * URL. In that case, we replay SCHEMA_SQL against Turso so subsequent
- * INSERT/UPDATE/DELETE calls succeed. Every statement is CREATE ... IF NOT
- * EXISTS, so this is safe to run on every boot.
+ * Ensure Turso has the same schema as local. Replays SCHEMA_SQL if not.
+ * Kept from your version — safe and idempotent.
  */
 async function ensureTursoSchema() {
   if (!tursoClient) return { created: false, reason: "no_turso_client" };
@@ -277,6 +274,17 @@ async function flushQueue() {
           return;
         }
 
+        // FK or other constraint errors on the write-through path are
+        // non-retryable in this batch. Log and drop so we don't block.
+        if (/FOREIGN KEY constraint failed/i.test(msg)) {
+          console.error(
+            "[turso] FK violation in write-through batch — dropping (boot sync will repair)",
+          );
+          lastSyncError = "fk_violation: " + msg.slice(0, 200);
+          lastSyncErrorAt = new Date().toISOString();
+          continue;
+        }
+
         console.error("[turso] batch error, isolating:", msg.slice(0, 200));
         for (let i = 0; i < batch.length; i++) {
           const item = batch[i];
@@ -293,6 +301,13 @@ async function flushQueue() {
               } catch (_) {}
               await new Promise((r) => setTimeout(r, 5000));
               return;
+            }
+            if (/FOREIGN KEY constraint failed/i.test(m2)) {
+              console.error(
+                "[turso] FK violation (isolated):",
+                m2.slice(0, 200),
+              );
+              continue;
             }
             lastSyncError = m2.slice(0, 200);
             lastSyncErrorAt = new Date().toISOString();
@@ -330,8 +345,16 @@ async function flushNow(timeoutMs = 5000) {
         lastSyncError = null;
         lastSyncErrorAt = null;
       } catch (e) {
+        const msg = String(e.message || "");
+        if (/FOREIGN KEY constraint failed/i.test(msg)) {
+          // Drop FK-violating batch — boot sync repairs
+          console.error("[turso] flushNow: FK violation, dropping batch");
+          lastSyncError = "fk_violation: " + msg.slice(0, 200);
+          lastSyncErrorAt = new Date().toISOString();
+          continue;
+        }
         syncQueue.unshift(...batch);
-        lastSyncError = String(e.message || "").slice(0, 200);
+        lastSyncError = msg.slice(0, 200);
         lastSyncErrorAt = new Date().toISOString();
         await new Promise((r) => setTimeout(r, 500));
       }
@@ -344,184 +367,41 @@ async function flushNow(timeoutMs = 5000) {
 }
 
 // ============================================================================
-// TURSO PULL (Turso → local)
+// TURSO PULL / PUSH / BOOT SYNC — delegated to turso-sync.js
 // ============================================================================
-/**
- * Pull every row from Turso into the local SQLite DB.
- * Uses INSERT OR REPLACE, so Turso wins on conflict.
- */
 async function pullFromTurso() {
   if (!tursoClient) return { restored: false, reason: "no_turso_client" };
-
-  let tursoUserCount = 0;
-  try {
-    const r = await tursoClient.execute("SELECT COUNT(*) AS c FROM users");
-    tursoUserCount = Number(r.rows[0]?.c || 0);
-  } catch (e) {
-    console.log("[turso] pull: users table not on Turso yet — skipping pull");
-    return { restored: false, reason: "no_turso_schema" };
-  }
-
-  if (tursoUserCount === 0) {
-    return { restored: false, reason: "turso_empty" };
-  }
-
-  console.log(
-    `[turso] pull: pulling from Turso (${tursoUserCount} users on remote)…`,
-  );
-
   const database = getDb();
+  const prev = suppressTursoSync;
   suppressTursoSync = true;
   database.pragma("foreign_keys = OFF");
-  let total = 0;
-
   try {
-    for (const t of SYNC_TABLES) {
-      let rs;
-      try {
-        rs = await tursoClient.execute(`SELECT * FROM ${t}`);
-      } catch (e) {
-        continue;
-      }
-      for (const r of rs.rows) {
-        const cols = Object.keys(r);
-        const placeholders = cols.map(() => "?").join(",");
-        const values = cols.map((c) => r[c]);
-        try {
-          database
-            .prepare(
-              `INSERT OR REPLACE INTO ${t} (${cols.join(",")}) VALUES (${placeholders})`,
-            )
-            .run(...values);
-          total++;
-        } catch (e) {
-          console.error(`[turso] pull ${t} row failed:`, e.message);
-        }
-      }
-    }
-    console.log(`[turso] pulled ${total} rows`);
-    return { restored: true, rows: total };
+    const r = await tursoSync.pullAll(database, tursoClient, {
+      log: console.log,
+      warn: console.warn,
+    });
+    return { restored: true, rows: r.pulled };
   } catch (e) {
     console.error("[turso] pull failed:", e.message);
     return { restored: false, error: e.message };
   } finally {
     database.pragma("foreign_keys = ON");
-    suppressTursoSync = false;
+    suppressTursoSync = prev;
   }
 }
 
-// ============================================================================
-// TURSO PUSH (local → Turso backfill)
-// ============================================================================
 async function pushLocalToTurso() {
-  if (!tursoClient) return { pushed: 0, errors: 0 };
-
-  try {
-    await ensureTursoSchema();
-  } catch (e) {
-    console.error("[turso] push: ensureTursoSchema failed:", e.message);
-  }
-
+  if (!tursoClient) return { pushed: 0, errors: 0, deferred: 0 };
   const database = getDb();
-  let pushed = 0;
-  let errors = 0;
-
-  for (const t of SYNC_TABLES) {
-    let rows;
-    try {
-      const order = t === "users" ? "ORDER BY created_at ASC" : "";
-      rows = database.prepare(`SELECT * FROM ${t} ${order}`).all();
-    } catch (e) {
-      continue;
-    }
-    if (rows.length === 0) continue;
-
-    for (let i = 0; i < rows.length; i += 100) {
-      const chunk = rows.slice(i, i + 100);
-      const stmts = chunk.map((row) => {
-        const cols = Object.keys(row);
-        const placeholders = cols.map(() => "?").join(",");
-        return {
-          sql: `INSERT OR IGNORE INTO ${t} (${cols.join(",")}) VALUES (${placeholders})`,
-          args: cols.map((c) => row[c]),
-        };
-      });
-
-      try {
-        await tursoClient.batch(stmts);
-        pushed += chunk.length;
-        continue;
-      } catch (e) {
-        const msg = String(e.message || "");
-
-        if (/no such table/i.test(msg)) {
-          console.error(
-            `[turso] push ${t}: table missing on Turso — ensuring schema and retrying`,
-          );
-          try {
-            await ensureTursoSchema();
-            await tursoClient.batch(stmts);
-            pushed += chunk.length;
-          } catch (e2) {
-            errors += chunk.length;
-            console.error(
-              `[turso] push ${t} retry failed:`,
-              String(e2.message || "").slice(0, 200),
-            );
-          }
-          continue;
-        }
-
-        for (const s of stmts) {
-          try {
-            await tursoClient.execute(s);
-            pushed++;
-          } catch (e2) {
-            errors++;
-            console.error(
-              `[turso] push ${t} row failed:`,
-              String(e2.message || "").slice(0, 200),
-            );
-          }
-        }
-      }
-    }
-  }
-
-  console.log(`[turso] pushed ${pushed} rows (${errors} errors)`);
-  return { pushed, errors };
+  const r = await tursoSync.pushAll(database, tursoClient, {
+    log: console.log,
+    warn: console.warn,
+  });
+  return { pushed: r.written, errors: r.errors, deferred: r.deferred };
 }
 
-// ============================================================================
-// BOOT SYNC  ← ← ← PRODUCTION-AWARE VERSION
-// ============================================================================
-/**
- * Bring local and Turso into agreement at boot.
- *
- *   1. Ensure Turso has the schema (create it if missing)
- *   2. Decide pull strategy based on environment:
- *        • PRODUCTION  → Turso is authoritative, ALWAYS pull (if Turso has users)
- *        • DEVELOPMENT → local is authoritative, pull only when local empty
- *   3. Always backfill local → Turso (INSERT OR IGNORE, safe no-op if present)
- *
- * The "always pull on prod" rule fixes the classic bug where a redeploy on a
- * host with a persistent volume carries over a stale local DB and skips the
- * pull — leaving the hosted app missing users that exist on Turso.
- */
 async function syncOnBoot() {
   if (!tursoClient) return { skipped: true, reason: "turso_not_configured" };
-
-  // 1. Schema first.
-  let schema = { created: false };
-  try {
-    schema = await ensureTursoSchema();
-  } catch (e) {
-    console.error("[turso] ensureTursoSchema failed:", e.message);
-    schema = { created: false, error: e.message };
-  }
-  console.log(
-    `[turso] schema: created=${schema.created}, reason=${schema.reason || "-"}, errors=${schema.errors || 0}`,
-  );
 
   const dbFileExisted = fs.existsSync(DB_PATH);
   const database = getDb();
@@ -532,7 +412,6 @@ async function syncOnBoot() {
   } catch (e) {
     localUsers = 0;
   }
-
   let tursoUsers = 0;
   try {
     const r = await tursoClient.execute("SELECT COUNT(*) AS c FROM users");
@@ -542,60 +421,21 @@ async function syncOnBoot() {
   }
 
   const isProduction = CONFIG.nodeEnv === "production";
-
   console.log(
     `[turso] boot: db file ${dbFileExisted ? "exists" : "missing"}, ` +
       `local=${localUsers}, turso=${tursoUsers}, env=${CONFIG.nodeEnv}`,
   );
 
-  // 2. Pull strategy
-  let pulled = { restored: false };
-  let pushed = { pushed: 0, errors: 0 };
+  // Turso-sync handles: ensure schema → pull (if prod or local empty) →
+  // ordered, FK-aware push with deferral.
+  const result = await tursoSync.bootSync(database, tursoClient, {
+    env: CONFIG.nodeEnv,
+    log: console.log,
+    warn: console.warn,
+    ensureRemoteSchema: ensureTursoSchema,
+  });
 
-  if (isProduction && tursoUsers > 0) {
-    // PRODUCTION: Turso is the source of truth. Always pull.
-    try {
-      pulled = await pullFromTurso();
-      console.log(
-        `[turso] prod pull: restored=${pulled.restored}, rows=${pulled.rows || 0}, ` +
-          `reason=${pulled.reason || "-"}`,
-      );
-    } catch (e) {
-      console.error("[turso] prod pull failed:", e.message);
-      lastSyncError = "prod_pull: " + e.message;
-      lastSyncErrorAt = new Date().toISOString();
-      return { error: "pull_failed: " + e.message, schema };
-    }
-  } else if (!isProduction && localUsers === 0) {
-    // DEVELOPMENT: local is authoritative; pull only when local empty.
-    try {
-      pulled = await pullFromTurso();
-      console.log(
-        `[turso] dev pull: restored=${pulled.restored}, rows=${pulled.rows || 0}, ` +
-          `reason=${pulled.reason || "-"}`,
-      );
-    } catch (e) {
-      console.error("[turso] dev pull failed:", e.message);
-      lastSyncError = "dev_pull: " + e.message;
-      lastSyncErrorAt = new Date().toISOString();
-    }
-  } else {
-    const reason = isProduction ? "prod_but_turso_empty" : "local_has_data";
-    console.log(
-      `[turso] boot: skipping pull (env=${CONFIG.nodeEnv}, local=${localUsers}, turso=${tursoUsers}, reason=${reason})`,
-    );
-    pulled = { restored: false, reason };
-  }
-
-  // 3. Always backfill local → Turso. INSERT OR IGNORE so existing rows win.
-  try {
-    pushed = await pushLocalToTurso();
-  } catch (e) {
-    console.error("[turso] boot push failed:", e.message);
-    pushed = { pushed: 0, errors: 0, error: e.message };
-  }
-
-  return { schema, pulled, pushed, localUsers, tursoUsers };
+  return result;
 }
 
 function syncStatus() {
@@ -700,7 +540,7 @@ function pushSSE(userId, event) {
 }
 
 // ============================================================================
-// SCHEMA
+// SCHEMA  (unchanged from your file)
 // ============================================================================
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS settings (
@@ -1018,7 +858,7 @@ function migrate() {
 }
 
 // ============================================================================
-// SEEDS / HELPERS
+// SEEDS / HELPERS  (unchanged except where noted)
 // ============================================================================
 function seedSettings() {
   const database = getDb();
@@ -1378,7 +1218,7 @@ function authenticateUser(phoneOrEmail, password) {
 }
 
 // ============================================================================
-// DELETE USER (cascading + Turso propagation)
+// DELETE USER
 // ============================================================================
 async function deleteUser(userId, actorId, actorRole, ip, ua) {
   const database = getDb();
@@ -1859,7 +1699,7 @@ function processPalPlussEvent(event, eventType, tx, ip, ua, database) {
 }
 
 // ============================================================================
-// PAYMENT PROCESSING (idempotent, transactional)
+// PAYMENT PROCESSING
 // ============================================================================
 function processSuccessfulPayment(verifiedData, ip, ua) {
   const database = getDb();
@@ -2336,7 +2176,7 @@ function notifyAdminsOfShortfall(trigger) {
 }
 
 // ============================================================================
-// WITHDRAWALS — QUEUE-BASED PALPLUSS B2C PAYOUTS
+// WITHDRAWALS
 // ============================================================================
 async function requestWithdrawal(userId, amountKobo, ip, ua) {
   const database = getDb();
@@ -2859,7 +2699,7 @@ function listWithdrawals(userId, page, pageSize) {
 }
 
 // ============================================================================
-// RECENT WITHDRAWALS (live feed for member dashboard)
+// RECENT WITHDRAWALS
 // ============================================================================
 function recentWithdrawals(limit = 15) {
   const database = getDb();
@@ -3019,7 +2859,7 @@ async function runReconciliation(actorId, ip, ua) {
 }
 
 // ============================================================================
-// ADMIN
+// ADMIN  (unchanged from your file)
 // ============================================================================
 function adminOverview() {
   const database = getDb();
@@ -3374,14 +3214,15 @@ async function bootstrap() {
   let sync;
   try {
     sync = await syncOnBoot();
-    if (sync.error) {
+    if (sync && sync.error) {
       console.error("[turso] boot sync error:", sync.error);
     } else {
       console.log(
         `[turso] boot sync complete — ` +
-          `schema=${sync.schema?.created ? "created" : "ok"}, ` +
-          `pulled=${sync.pulled?.restored ? sync.pulled.rows : 0}, ` +
-          `pushed=${sync.pushed?.pushed || 0}`,
+          `schema=${sync?.schema?.created ? "created" : "ok"}, ` +
+          `pulled=${sync?.pulled?.rows || sync?.pulled || 0}, ` +
+          `pushed=${sync?.pushed || sync?.written || 0}, ` +
+          `deferred=${sync?.deferred || 0}`,
       );
     }
   } catch (e) {
@@ -3396,7 +3237,7 @@ async function bootstrap() {
 }
 
 // ============================================================================
-// EXPORTS
+// EXPORTS  (identical surface to your file, so server.js is unchanged here)
 // ============================================================================
 module.exports = {
   CONFIG,

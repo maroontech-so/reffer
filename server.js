@@ -21,6 +21,9 @@ const PORT = process.env.PORT || 3000;
 
 app.set("trust proxy", 1);
 
+// ============================================================================
+// SECURITY
+// ============================================================================
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -32,11 +35,19 @@ app.use(
           "'unsafe-inline'",
           "https://js.paystack.co",
           "https://cdn.tailwindcss.com",
-          "https://nap5k.com", // 👈 ADD THIS for Monetag In-Page Push
+          "https://nap5k.com",
         ],
         "script-src-attr": ["'unsafe-inline'"],
-        "connect-src": ["'self'", "https://api.palpluss.com", "https://nap5k.com"],
-        "frame-src": ["'self'", "https://checkout.paystack.com", "https://nap5k.com"],
+        "connect-src": [
+          "'self'",
+          "https://api.palpluss.com",
+          "https://nap5k.com",
+        ],
+        "frame-src": [
+          "'self'",
+          "https://checkout.paystack.com",
+          "https://nap5k.com",
+        ],
         "img-src": ["'self'", "data:", "https:"],
         "style-src": ["'self'", "'unsafe-inline'"],
       },
@@ -46,6 +57,10 @@ app.use(
 );
 
 app.use(cors({ origin: backend.CONFIG.appUrl, credentials: true }));
+
+// ============================================================================
+// BODY PARSERS
+// ============================================================================
 app.use(
   express.json({
     limit: "2mb",
@@ -58,6 +73,9 @@ app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
 app.use(morgan("combined"));
 
+// ============================================================================
+// RATE LIMITING
+// ============================================================================
 app.use(
   rateLimit({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000", 10),
@@ -189,13 +207,27 @@ function verifyPalPlussSignature(req) {
 }
 
 // ============================================================================
-// STATIC
+// WHATSAPP WEBHOOK + FAVICON (silence Meta health checks / 404 noise)
 // ============================================================================
-const PUBLIC_DIR = __dirname;
-app.use("/data", (req, res) => res.status(404).end());
-app.use(
-  express.static(PUBLIC_DIR, { extensions: ["html"], index: "index.html" }),
-);
+app.get("/webhook/whatsapp", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || "";
+  if (mode === "subscribe" && VERIFY_TOKEN && token === VERIFY_TOKEN) {
+    return res.status(200).send(challenge);
+  }
+  return res.status(403).send("forbidden");
+});
+
+app.post("/webhook/whatsapp", (req, res) => {
+  return res.status(200).send("ok");
+});
+
+app.get("/favicon.ico", (_req, res) => {
+  res.status(204).end();
+});
 
 // ============================================================================
 // HEALTH / CONFIG
@@ -281,22 +313,27 @@ app.post("/api/auth/register", authLimiter, (req, res) => {
 });
 
 app.post("/api/auth/login", authLimiter, (req, res) => {
-  const { identifier, password } = req.body || {};
-  const user = backend.authenticateUser(identifier, password);
-  if (!user) return res.status(401).json({ error: "Invalid credentials" });
-  const token = backend.generateToken(user);
-  setAuthCookie(res, token);
-  backend.audit(
-    user.id,
-    user.role,
-    "auth.login",
-    "user",
-    user.id,
-    req.ip,
-    req.get("user-agent"),
-    null,
-  );
-  res.json({ ok: true, token, user: safeUser(user) });
+  try {
+    const { identifier, password } = req.body || {};
+    const user = backend.authenticateUser(identifier, password);
+    if (!user) return res.status(401).json({ error: "Invalid credentials" });
+    const token = backend.generateToken(user);
+    setAuthCookie(res, token);
+    backend.audit(
+      user.id,
+      user.role,
+      "auth.login",
+      "user",
+      user.id,
+      req.ip,
+      req.get("user-agent"),
+      null,
+    );
+    res.json({ ok: true, token, user: safeUser(user) });
+  } catch (e) {
+    console.error("[login] error:", e);
+    res.status(500).json({ error: "Login failed" });
+  }
 });
 
 app.post("/api/auth/logout", (req, res) => {
@@ -452,9 +489,6 @@ app.post("/api/member/notifications/read", requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-// ----------------------------------------------------------------------------
-// Member: recent withdrawals (masked) for the live activity ticker
-// ----------------------------------------------------------------------------
 app.get("/api/member/recent-withdrawals", requireAuth, (req, res) => {
   try {
     res.json({ items: backend.recentWithdrawals(15) });
@@ -463,7 +497,6 @@ app.get("/api/member/recent-withdrawals", requireAuth, (req, res) => {
     res.status(500).json({ error: "Failed to load recent withdrawals" });
   }
 });
-
 
 app.post("/api/member/profile", requireAuth, (req, res) => {
   const { fullName, email, payoutPhone } = req.body || {};
@@ -511,9 +544,6 @@ app.post("/api/member/profile", requireAuth, (req, res) => {
   }
 });
 
-// ----------------------------------------------------------------------------
-// Member: delete own account (cascades to Turso)
-// ----------------------------------------------------------------------------
 app.delete("/api/member/account", requireAuth, async (req, res) => {
   try {
     const result = await backend.deleteUser(
@@ -637,14 +667,17 @@ app.get("/api/payments/verify/:reference", requireAuth, async (req, res) => {
 app.get("/api/admin/overview", requireAdmin, (req, res) =>
   res.json(backend.adminOverview()),
 );
+
 app.get("/api/admin/users", requireAdmin, (req, res) =>
   res.json(backend.adminListUsers(req.query)),
 );
+
 app.get("/api/admin/users/:id", requireAdmin, (req, res) => {
   const data = backend.adminUserDetail(req.params.id);
   if (!data) return res.status(404).json({ error: "User not found" });
   res.json(data);
 });
+
 app.post("/api/admin/users/:id/status", requireAdmin, (req, res) => {
   const { status, reason } = req.body || {};
   const result = backend.adminSetUserStatus(
@@ -659,9 +692,6 @@ app.post("/api/admin/users/:id/status", requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-// ----------------------------------------------------------------------------
-// Admin: delete user (cascades to Turso)
-// ----------------------------------------------------------------------------
 app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
   try {
     const result = await backend.deleteUser(
@@ -837,7 +867,30 @@ app.post("/api/admin/sync/push", requireAdmin, async (req, res) => {
 });
 
 // ============================================================================
-// FALLBACKS
+// API 404 — MUST be before express.static so /api/* never serves HTML
+// ============================================================================
+app.use("/api", (req, res) => {
+  res.status(404).json({
+    error: "Endpoint not found",
+    method: req.method,
+    path: req.originalUrl,
+  });
+});
+
+// ============================================================================
+// STATIC — after all routes
+// ============================================================================
+const PUBLIC_DIR = __dirname;
+
+// Block direct access to the data folder
+app.use("/data", (req, res) => res.status(404).json({ error: "Not found" }));
+
+app.use(
+  express.static(PUBLIC_DIR, { extensions: ["html"], index: "index.html" }),
+);
+
+// ============================================================================
+// HTML FALLBACKS (SPA-style entry points)
 // ============================================================================
 app.get("/", (req, res) => res.sendFile(path.join(PUBLIC_DIR, "index.html")));
 app.get("/admin", (req, res) =>
@@ -848,7 +901,7 @@ app.get("/account", (req, res) =>
 );
 
 // ============================================================================
-// ERRORS
+// ERROR HANDLER — always JSON
 // ============================================================================
 app.use((err, req, res, next) => {
   console.error("[error]", err);
@@ -871,7 +924,6 @@ async function shutdown(signal) {
     if (httpServer) {
       await new Promise((resolve) => {
         httpServer.close(() => resolve());
-        // Don't hang on keep-alive connections forever
         setTimeout(resolve, 3000);
       });
     }
