@@ -32,6 +32,7 @@
             }
             .apple-input {
                 background: #fff;
+                color: #1d1d1f;              /* ← the actual fix */
                 border: 1px solid #d2d2d7;
                 border-radius: 12px;
                 transition: all 0.2s ease;
@@ -40,6 +41,18 @@
                 outline: none;
                 border-color: #0071e3;
                 box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+            }
+            .apple-input::placeholder {
+                color: #9ca3af;
+                opacity: 1;
+            }
+            /* Chrome / Safari autofill forces its own text colour — pin it back */
+            .apple-input:-webkit-autofill,
+            .apple-input:-webkit-autofill:hover,
+            .apple-input:-webkit-autofill:focus {
+                -webkit-text-fill-color: #1d1d1f;
+                -webkit-box-shadow: 0 0 0 1000px #fff inset;
+                transition: background-color 5000s ease-in-out 0s;
             }
             .apple-btn {
                 background: #0071e3;
